@@ -1,0 +1,7 @@
+{
+    "gopls": {
+        "build.env": {
+            "GOPRIVATE": "github.com/cloudy-sky-software/pulumi-render,github.com/cloudy-sky-software/pulschema"
+        }
+    }
+}
