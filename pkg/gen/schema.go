@@ -30,6 +30,12 @@ type CRUDOperationsMap struct {
 	P *string `json:"p,omitempty"`
 }
 
+type ProviderMetadata struct {
+	// ResourceToOperationMap identifies the endpoint that will
+	// handle the CRUD for a given Pulumi resource type token.
+	ResourceCRUDMap map[string]*CRUDOperationsMap `json:"crudMap"`
+}
+
 type resourceContext struct {
 	mod               string
 	pkg               *pschema.PackageSpec
