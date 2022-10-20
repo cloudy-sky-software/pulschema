@@ -195,5 +195,3 @@ require (
 	lukechampine.com/frand v1.4.2 // indirect
 	sourcegraph.com/sourcegraph/appdash v0.0.0-20211028080628-e2786a622600 // indirect
 )
-
-replace github.com/mattn/go-ieproxy => github.com/mattn/go-ieproxy v0.0.1
