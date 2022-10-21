@@ -1,0 +1,25 @@
+run:
+  skip-files:
+    - pulumi-resource-render/schema.go
+    # Ignore the generated config.go file temporarily because it contains
+    # an unused import that the linter will complain about.
+    - go/render/config/config.go
+
+linters:
+  enable-all: false
+  enable:
+    - errcheck
+    - goconst
+    - gofmt
+    - gosec
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - revive
+    - unconvert
+    - unused
+  disable:
+    - lll
+    - staticcheck
+    - megacheck
