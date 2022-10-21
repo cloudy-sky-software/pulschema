@@ -1,6 +1,6 @@
 // Copyright 2022, Cloudy Sky Software.
 
-package gen
+package pkg
 
 import (
 	"strings"

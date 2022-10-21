@@ -1,4 +1,6 @@
-package gen
+// Copyright 2022, Cloudy Sky Software.
+
+package pkg
 
 import (
 	"bytes"
