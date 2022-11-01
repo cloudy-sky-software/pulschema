@@ -1,6 +1,6 @@
 module github.com/cloudy-sky-software/pulschema
 
-go 1.18
+go 1.19
 
 require (
 	github.com/getkin/kin-openapi v0.107.0
