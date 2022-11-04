@@ -24,6 +24,8 @@ const jsonMimeType = "application/json"
 const arrayType = "array"
 const parameterLocationPath = "path"
 
+// OpenAPIContext represents an OpenAPI spec from which a Pulumi package
+// spec can be extracted.
 type OpenAPIContext struct {
 	Doc             openapi3.T
 	Pkg             *pschema.PackageSpec

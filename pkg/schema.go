@@ -14,8 +14,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 )
 
-type OperationMap map[string]string
-
 // CRUDOperationsMap identifies the endpoints to perform
 // create, read, update and delete (CRUD) operations.
 type CRUDOperationsMap struct {
@@ -32,6 +30,7 @@ type CRUDOperationsMap struct {
 	P *string `json:"p,omitempty"`
 }
 
+// ProviderMetadata represents metadata used by a provider.
 type ProviderMetadata struct {
 	// ResourceToOperationMap identifies the endpoint that will
 	// handle the CRUD for a given Pulumi resource type token.
