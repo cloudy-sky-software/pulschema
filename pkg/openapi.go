@@ -235,6 +235,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
 				setPutOperationMapping(typeToken)
 			}
+
+			// PUT methods can be used to create as well as update resources.
+			if err := o.gatherResource(currentPath, *resourceType, pathItem.Put.Parameters, module); err != nil {
+				return errors.Wrapf(err, "generating resource for api path %s", currentPath)
+			}
+
+			csharpNamespaces[module] = ToPascalCase(module)
 		}
 
 		if pathItem.Delete != nil && pathItem.Delete.RequestBody != nil {
