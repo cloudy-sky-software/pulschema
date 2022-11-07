@@ -27,9 +27,16 @@ const parameterLocationPath = "path"
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
 type OpenAPIContext struct {
-	Doc             openapi3.T
-	Pkg             *pschema.PackageSpec
+	// Doc is the parsed, validated OpenAPI spec.
+	Doc openapi3.T
+	// Pkg is the Pulumi schema spec.
+	Pkg *pschema.PackageSpec
+	// ResourceCRUDMap is a map of the Pulumi resource type
+	// token to its CRUD endpoints.
 	ResourceCRUDMap map[string]*CRUDOperationsMap
+	// ExcludedPaths is a slice of API endpoint paths
+	// that should be skipped.
+	ExcludedPaths []string
 }
 
 func getRootPath(path string) string {
@@ -46,6 +53,18 @@ func getParentPath(path string) string {
 
 	// Skip the last path part which contains a path parameter.
 	return "/" + strings.Join(parts[0:len(parts)-1], "/")
+}
+
+// index returns the index of the element `toFind`
+// in the slice `slice`. Returns -1 if not found.
+func index(slice []string, toFind string) int {
+	for i, s := range slice {
+		if s == toFind {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -67,12 +86,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		currentPath := path
 		module := getRootPath(currentPath)
 
-		// TODO: TEMPORARY!
-		if currentPath == "/services/{serviceId}/resume" ||
-			currentPath == "/services/{serviceId}/custom-domains/{id}/verify" {
+		if index(o.ExcludedPaths, currentPath) > -1 {
 			continue
 		}
-		//
 
 		glog.V(3).Infof("Processing path %s\n", currentPath)
 
