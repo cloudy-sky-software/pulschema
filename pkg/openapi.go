@@ -202,7 +202,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			if resourceType.Type == arrayType || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				var funcName string
 				if resourceType.Title != "" {
-					funcName = "list" + resourceType.Title
+					resourceType.Title = strings.ReplaceAll(resourceType.Title, "List", "")
+					if !strings.HasPrefix(resourceType.Title, "list") {
+						funcName = "list" + resourceType.Title
+					}
 				} else {
 					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
 				}
@@ -237,7 +240,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch)
 			}
 			if resourceType.Title == "" {
-				return errors.New("request body schema must have a title or the operation must have an operationid")
+				return errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
@@ -298,7 +301,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut)
 			}
 			if resourceType.Title == "" {
-				return errors.New("request body schema must have a title or the operation must have an operationid")
+				return errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil {
@@ -350,7 +353,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete)
 				}
 				if resourceType.Title == "" {
-					return errors.New("request body schema must have a title or the operation must have an operationid")
+					return errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 				}
 
 				if resourceType.Discriminator != nil {
@@ -390,7 +393,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if resourceType.Title == "" {
-			return errors.New("request body schema must have a title or the operation must have an operationid")
+			return errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 		}
 
 		if err := o.gatherResource(currentPath, *resourceType, pathItem.Post.Parameters, module); err != nil {
