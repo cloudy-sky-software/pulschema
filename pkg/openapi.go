@@ -4,6 +4,7 @@ package pkg
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -96,6 +97,27 @@ func index(slice []string, toFind string) int {
 	return -1
 }
 
+func getResourceTitleFromOperationID(operationID, method string) string {
+	var replaceKeywords []string
+
+	switch method {
+	case http.MethodGet:
+		replaceKeywords = append(replaceKeywords, "Get", "get", "List", "list")
+	case http.MethodPatch:
+		replaceKeywords = append(replaceKeywords, "Update", "update")
+	case http.MethodPut:
+		replaceKeywords = append(replaceKeywords, "Set", "set")
+	case http.MethodDelete:
+		replaceKeywords = append(replaceKeywords, "Delete", "delete")
+	}
+
+	for _, v := range replaceKeywords {
+		operationID = strings.ReplaceAll(operationID, v, "")
+	}
+
+	return operationID
+}
+
 // GatherResourcesFromAPI gathers resources from API endpoints.
 // The goal is to extract resources and map their corresponding CRUD
 // operations.
@@ -141,6 +163,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
+			// if resourceType.Title == "" {
+			// 	resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
+			// }
+			// if resourceType.Title == "" {
+			// 	return errors.New("request body schema must have a title or the operation must have an operationid")
+			// }
+
 			if resourceType.Type != arrayType && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				// If there is a discriminator then we should set this operation
 				// as the read endpoint for each of the types in the mapping.
@@ -208,6 +237,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
+			if resourceType.Title == "" {
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch)
+			}
+			if resourceType.Title == "" {
+				return errors.New("request body schema must have a title or the operation must have an operationid")
+			}
+
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
 				schemaNames := make([]string, 0)
 				if resourceType.Discriminator != nil {
@@ -237,9 +273,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setUpdateOperationMapping(typeToken)
 				}
 			} else {
-				if resourceType.Title == "" {
-					resourceType.Title = strings.ReplaceAll(pathItem.Patch.OperationID, "Update", "")
-				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
 				setUpdateOperationMapping(typeToken)
 			}
@@ -265,6 +298,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
+			if resourceType.Title == "" {
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut)
+			}
+			if resourceType.Title == "" {
+				return errors.New("request body schema must have a title or the operation must have an operationid")
+			}
+
 			if resourceType.Discriminator != nil {
 				for _, ref := range resourceType.Discriminator.Mapping {
 					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
@@ -273,9 +313,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setPutOperationMapping(typeToken)
 				}
 			} else {
-				if resourceType.Title == "" {
-					resourceType.Title = strings.ReplaceAll(pathItem.Put.OperationID, "Set", "")
-				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
 				setPutOperationMapping(typeToken)
 			}
@@ -284,14 +321,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// AS LONG AS the endpoint does not end with a path param. It cannot be used
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if !strings.HasSuffix(currentPath, "}") {
-				if resourceType.Title == "" {
-					resourceType.Title = strings.ReplaceAll(pathItem.Put.OperationID, "Set", "")
-				}
-
-				if resourceType.Title == "" {
-					return errors.New("request body schema must have a title or the operation must have an operationid")
-				}
-
 				if err := o.gatherResource(currentPath, *resourceType, pathItem.Put.Parameters, module); err != nil {
 					return errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
@@ -321,6 +350,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 
 				resourceType := jsonReq.Schema.Value
+				if resourceType.Title == "" {
+					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete)
+				}
+				if resourceType.Title == "" {
+					return errors.New("request body schema must have a title or the operation must have an operationid")
+				}
+
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
@@ -329,14 +365,15 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						setDeleteOperationMapping(typeToken)
 					}
 				} else {
-					if resourceType.Title == "" {
-						resourceType.Title = strings.ReplaceAll(pathItem.Delete.OperationID, "Delete", "")
-					}
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
-				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, strings.ReplaceAll(pathItem.Delete.OperationID, "Delete", ""))
+				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete)
+				if resourceTypeTitle == "" {
+					return errors.New("request body schema must have a title or the operation must have an operationid")
+				}
+				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceTypeTitle)
 				setDeleteOperationMapping(typeToken)
 			}
 		}
