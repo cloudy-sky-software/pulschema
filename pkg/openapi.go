@@ -163,13 +163,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
-			// if resourceType.Title == "" {
-			// 	resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
-			// }
-			// if resourceType.Title == "" {
-			// 	return errors.New("request body schema must have a title or the operation must have an operationid")
-			// }
 
+			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
+			// or a list of resources.
 			if resourceType.Type != arrayType && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				// If there is a discriminator then we should set this operation
 				// as the read endpoint for each of the types in the mapping.
@@ -188,7 +184,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					if resourceType.Title == "" {
-						resourceType.Title = strings.ReplaceAll(pathItem.Get.OperationID, "Get", "")
+						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
 					}
 
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
@@ -208,7 +204,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				if resourceType.Title != "" {
 					funcName = "list" + resourceType.Title
 				} else {
-					funcName = "list" + strings.ReplaceAll(pathItem.Get.OperationID, "List", "")
+					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
 				}
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
