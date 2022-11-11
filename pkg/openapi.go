@@ -580,6 +580,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 
 					propSpec = pschema.PropertySpec{
 						TypeSpec: pschema.TypeSpec{
+							Type:                 "object",
 							AdditionalProperties: typeSpec,
 						},
 					}
@@ -907,6 +908,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 					}
 
 					typeSpec = &pschema.TypeSpec{
+						Type:                 "object",
 						AdditionalProperties: addlPropsTypeSpec,
 					}
 				}
