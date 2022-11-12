@@ -595,17 +595,26 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 		}
 
-		if !prop.Value.ReadOnly {
+		// Skip read-only properties and `id` properties as direct inputs for resources.
+		if !prop.Value.ReadOnly && propName != "id" {
 			inputProperties[propName] = propSpec
 		}
-		properties[propName] = propSpec
+
+		// Don't add `id` to the output properties since Pulumi
+		// automatically adds that via `CustomResource` which
+		// is what all resources in the SDK will extend.
+		if propName != "id" {
+			properties[propName] = propSpec
+		}
 	}
 
 	// Create a set of required inputs for this resource.
 	// Filter out required props that are marked as read-only.
 	for _, requiredProp := range resourceAPISchema.Required {
 		propSchema := resourceAPISchema.Properties[requiredProp]
-		if propSchema.Value.ReadOnly {
+		// `name` property is not strictly required as Pulumi can auto-name it
+		// based on the Pulumi resource name.
+		if propSchema.Value.ReadOnly || requiredProp == "name" {
 			continue
 		}
 
