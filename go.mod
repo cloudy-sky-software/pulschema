@@ -6,8 +6,8 @@ require (
 	github.com/getkin/kin-openapi v0.108.0
 	github.com/golang/glog v1.0.0
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/pkg/v3 v3.46.0
-	github.com/pulumi/pulumi/sdk/v3 v3.46.0
+	github.com/pulumi/pulumi/pkg/v3 v3.46.1
+	github.com/pulumi/pulumi/sdk/v3 v3.46.1
 )
 
 require (
@@ -17,6 +17,7 @@ require (
 	cloud.google.com/go/kms v1.4.0 // indirect
 	cloud.google.com/go/logging v1.5.0 // indirect
 	cloud.google.com/go/storage v1.26.0 // indirect
+	github.com/AlecAivazis/survey/v2 v2.0.5 // indirect
 	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.1.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.0.0 // indirect
@@ -140,6 +141,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/term v0.0.0-20220808134915-39b0c02b01ae // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
