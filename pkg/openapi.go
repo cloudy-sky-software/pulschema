@@ -635,6 +635,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 				return nil, errors.Errorf("auto-name prop already exists for resource %s (existing: %s, new: %s)", typeToken, autoNameProp, requiredProp)
 			}
 			o.autoNameMap[typeToken] = "name"
+
+			continue
 		}
 
 		requiredInputs.Add(requiredProp)
