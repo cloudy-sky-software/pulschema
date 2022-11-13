@@ -32,9 +32,6 @@ type OpenAPIContext struct {
 	Doc openapi3.T
 	// Pkg is the Pulumi schema spec.
 	Pkg *pschema.PackageSpec
-	// ResourceCRUDMap is a map of the Pulumi resource type
-	// token to its CRUD endpoints.
-	ResourceCRUDMap map[string]*CRUDOperationsMap
 	// ExcludedPaths is a slice of API endpoint paths
 	// that should be skipped.
 	ExcludedPaths []string
@@ -53,6 +50,13 @@ type OpenAPIContext struct {
 	// The resource called `secondResource` will be in a module called
 	// `subResource` instead of a module called `rootResource`.
 	UseParentResourceAsModule bool
+
+	// resourceCRUDMap is a map of the Pulumi resource type
+	// token to its CRUD endpoints.
+	resourceCRUDMap map[string]*CRUDOperationsMap
+	// autoNameMap is a map of the resource type token
+	// and the property that can be auto-named.
+	autoNameMap map[string]string
 }
 
 type duplicateEnumError struct {
@@ -130,7 +134,10 @@ func getResourceTitleFromOperationID(operationID, method string) string {
 //     for resource updates. The Patch request schema is used to determine
 //     which properties can be patched when changes are detected in Diff() vs.
 //     which ones will force a resource replacement.
-func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) error {
+func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, error) {
+	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
+	o.autoNameMap = make(map[string]string)
+
 	for path, pathItem := range o.Doc.Paths {
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
@@ -153,10 +160,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			setReadOperationMapping := func(tok string) {
-				if existing, ok := o.ResourceCRUDMap[tok]; ok {
+				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.R = &currentPath
 				} else {
-					o.ResourceCRUDMap[tok] = &CRUDOperationsMap{
+					o.resourceCRUDMap[tok] = &CRUDOperationsMap{
 						R: &currentPath,
 					}
 				}
@@ -226,10 +233,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			setUpdateOperationMapping := func(tok string) {
-				if existing, ok := o.ResourceCRUDMap[tok]; ok {
+				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.U = &currentPath
 				} else {
-					o.ResourceCRUDMap[tok] = &CRUDOperationsMap{
+					o.resourceCRUDMap[tok] = &CRUDOperationsMap{
 						U: &currentPath,
 					}
 				}
@@ -240,7 +247,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch)
 			}
 			if resourceType.Title == "" {
-				return errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+				return nil, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
@@ -287,10 +294,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			setPutOperationMapping := func(tok string) {
-				if existing, ok := o.ResourceCRUDMap[tok]; ok {
+				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.P = &currentPath
 				} else {
-					o.ResourceCRUDMap[tok] = &CRUDOperationsMap{
+					o.resourceCRUDMap[tok] = &CRUDOperationsMap{
 						P: &currentPath,
 					}
 				}
@@ -301,7 +308,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut)
 			}
 			if resourceType.Title == "" {
-				return errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+				return nil, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil {
@@ -321,7 +328,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if !strings.HasSuffix(currentPath, "}") {
 				if err := o.gatherResource(currentPath, *resourceType, pathItem.Put.Parameters, module); err != nil {
-					return errors.Wrapf(err, "generating resource for api path %s", currentPath)
+					return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
 
 				csharpNamespaces[module] = ToPascalCase(module)
@@ -333,10 +340,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
 
 			setDeleteOperationMapping := func(tok string) {
-				if existing, ok := o.ResourceCRUDMap[tok]; ok {
+				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.D = &currentPath
 				} else {
-					o.ResourceCRUDMap[tok] = &CRUDOperationsMap{
+					o.resourceCRUDMap[tok] = &CRUDOperationsMap{
 						D: &currentPath,
 					}
 				}
@@ -353,7 +360,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete)
 				}
 				if resourceType.Title == "" {
-					return errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 				}
 
 				if resourceType.Discriminator != nil {
@@ -370,7 +377,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			} else {
 				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete)
 				if resourceTypeTitle == "" {
-					return errors.New("request body schema must have a title or the operation must have an operationid")
+					return nil, errors.New("request body schema must have a title or the operation must have an operationid")
 				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceTypeTitle)
 				setDeleteOperationMapping(typeToken)
@@ -383,7 +390,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
 		if jsonReq.Schema.Value == nil {
-			return errors.Errorf("path %s has no api schema definition for post method", currentPath)
+			return nil, errors.Errorf("path %s has no api schema definition for post method", currentPath)
 		}
 
 		resourceType := jsonReq.Schema.Value
@@ -393,17 +400,20 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if resourceType.Title == "" {
-			return errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+			return nil, errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 		}
 
 		if err := o.gatherResource(currentPath, *resourceType, pathItem.Post.Parameters, module); err != nil {
-			return errors.Wrapf(err, "generating resource for api path %s", currentPath)
+			return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
 
 		csharpNamespaces[module] = ToPascalCase(module)
 	}
 
-	return nil
+	return &ProviderMetadata{
+		ResourceCRUDMap: o.resourceCRUDMap,
+		AutoNameMap:     o.autoNameMap,
+	}, nil
 }
 
 // genListFunc returns a function spec for a GET API endpoint that returns a list of objects.
@@ -565,6 +575,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 	inputProperties := make(map[string]pschema.PropertySpec)
 	properties := make(map[string]pschema.PropertySpec)
 	requiredInputs := codegen.NewStringSet()
+	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceAPISchema.Title)
+
 	for propName, prop := range resourceAPISchema.Properties {
 		var propSpec pschema.PropertySpec
 
@@ -614,8 +626,15 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 		propSchema := resourceAPISchema.Properties[requiredProp]
 		// `name` property is not strictly required as Pulumi can auto-name it
 		// based on the Pulumi resource name.
-		if propSchema.Value.ReadOnly || requiredProp == "name" {
+		if propSchema.Value.ReadOnly {
 			continue
+		}
+
+		if requiredProp == "name" {
+			if autoNameProp, ok := o.autoNameMap[typeToken]; ok {
+				return nil, errors.Errorf("auto-name prop already exists for resource %s (existing: %s, new: %s)", typeToken, autoNameProp, requiredProp)
+			}
+			o.autoNameMap[typeToken] = "name"
 		}
 
 		requiredInputs.Add(requiredProp)
@@ -656,10 +675,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 			delete(pkgCtx.pkg.Types, refTypeTok)
 		}
 
-		if existing, ok := o.ResourceCRUDMap[typeToken]; ok {
+		if existing, ok := o.resourceCRUDMap[typeToken]; ok {
 			existing.C = &apiPath
 		} else {
-			o.ResourceCRUDMap[typeToken] = &CRUDOperationsMap{
+			o.resourceCRUDMap[typeToken] = &CRUDOperationsMap{
 				C: &apiPath,
 			}
 		}
@@ -678,11 +697,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 		return &typeToken, nil
 	}
 
-	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceAPISchema.Title)
-	if existing, ok := o.ResourceCRUDMap[typeToken]; ok {
+	if existing, ok := o.resourceCRUDMap[typeToken]; ok {
 		existing.C = &apiPath
 	} else {
-		o.ResourceCRUDMap[typeToken] = &CRUDOperationsMap{
+		o.resourceCRUDMap[typeToken] = &CRUDOperationsMap{
 			C: &apiPath,
 		}
 	}
@@ -727,8 +745,8 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	// the generated names. Replace them with `Ref` and `Schema`.
 	if strings.HasPrefix(propName, "$") {
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(map[string]interface{}{
-				"name": strings.ToUpper(propName[1:2]) + propName[2:],
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				Name: strings.ToUpper(propName[1:2]) + propName[2:],
 			}),
 		}
 	}

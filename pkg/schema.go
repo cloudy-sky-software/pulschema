@@ -35,6 +35,9 @@ type ProviderMetadata struct {
 	// ResourceToOperationMap identifies the endpoint that will
 	// handle the CRUD for a given Pulumi resource type token.
 	ResourceCRUDMap map[string]*CRUDOperationsMap `json:"crudMap"`
+	// AutoNameMap is a map of resource type token and the name
+	// property that can be auto-named by the provider.
+	AutoNameMap map[string]string `json:"autoNameMap"`
 }
 
 type resourceContext struct {
