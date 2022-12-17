@@ -281,6 +281,8 @@ github.com/aws/aws-sdk-go-v2 v1.16.2/go.mod h1:ytwTPBG6fXTZLxxeeCCWj2/EMYp/xDUgX
 github.com/aws/aws-sdk-go-v2 v1.16.8/go.mod h1:6CpKuLXg2w7If3ABZCl/qZ6rEgwtjZTn4eAf4RcEyuw=
 github.com/aws/aws-sdk-go-v2 v1.16.13 h1:HgF7OX2q0gSZtcXoo9DMEA8A2Qk/GCxmWyM0RI7Yz2Y=
 github.com/aws/aws-sdk-go-v2 v1.16.13/go.mod h1:xSyvSnzh0KLs5H4HJGeIEsNYemUWdNIl0b/rP6SIsLU=
+github.com/aws/aws-sdk-go-v2 v1.17.1 h1:02c72fDJr87N8RAC2s3Qu0YuvMRZKNZJ9F+lAehCazk=
+github.com/aws/aws-sdk-go-v2 v1.17.1/go.mod h1:JLnGeGONAyi2lWXI1p0PCIOIy333JMVK1U7Hf0aRFLw=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.1/go.mod h1:n8Bs1ElDD2wJ9kCRTczA83gYbBmjSwZp3umc6zF4EeM=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.3/go.mod h1:gNsR5CaXKmQSSzrmGxmwmct/r+ZBfbxorAuXYsj/M5Y=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.6 h1:PPefqpze5qW/eqdgK5RqtOTQi5GhXpSxitbGqImAQ1I=
@@ -305,10 +307,14 @@ github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.9/go.mod h1:AnVH5pvai0p
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.15/go.mod h1:pWrr2OoHlT7M/Pd2y4HV3gJyPb3qj5qMmnPkKSNPYK4=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.20 h1:Rk8eqZSdFovt8Id+O+i2qT0c3CY13DPn2SfGOEVlxNs=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.20/go.mod h1:gdZ5gRUaxThXIZyZQ8MTtgYBk2jbHgp05BO3GcD9Cwc=
+github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.25 h1:nBO/RFxeq/IS5G9Of+ZrgucRciie2qpLy++3UGZ+q2E=
+github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.25/go.mod h1:Zb29PYkf42vVYQY6pvSyJCJcFHlPIiY+YKdPtwnvMkY=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.3/go.mod h1:ssOhaLpRlh88H3UmEcsBoVKq309quMvm3Ds8e9d4eJM=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.9/go.mod h1:08tUpeSGN33QKSO7fwxXczNfiwCpbj+GxK6XKwqWVv0=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.14 h1:6Yxuq9yrkoLYab5JXqJnto9tdRuIcYVdR+eiKjsJYWU=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.14/go.mod h1:GEV9jaDPIgayiU+uevxwozcvUOjc+P4aHE2BeSjm2vE=
+github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.19 h1:oRHDrwCTVT8ZXi4sr9Ld+EXk7N/KGssOr2ygNeojEhw=
+github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.19/go.mod h1:6Q0546uHDp421okhmmGfbxzq2hBqbXFNpi4k+Q1JnQA=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.10/go.mod h1:8DcYQcz0+ZJaSxANlHIsbbi6S+zMwjwdDqwW3r9AzaE=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.16/go.mod h1:CYmI+7x03jjJih8kBEEFKRQc40UjUokT0k7GbvrhhTc=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.21 h1:lpwSbLKYTuABo6SyUoC25xAmfO3/TehGS2SmD1EtOL0=
@@ -362,6 +368,8 @@ github.com/aws/smithy-go v1.11.2/go.mod h1:3xHYmszWVx2c0kIwQeEVf9uSm4fYZt67FBJnw
 github.com/aws/smithy-go v1.12.0/go.mod h1:Tg+OJXh4MB2R/uN61Ko2f6hTZwB/ZYGOtib8J3gBHzA=
 github.com/aws/smithy-go v1.13.1 h1:q09BdpUiaqpothcv393ACfWJJHzlzjB5HaNL1XHKmoQ=
 github.com/aws/smithy-go v1.13.1/go.mod h1:Tg+OJXh4MB2R/uN61Ko2f6hTZwB/ZYGOtib8J3gBHzA=
+github.com/aws/smithy-go v1.13.4 h1:/RN2z1txIJWeXeOkzX+Hk/4Uuvv7dWtCjbmVJcrskyk=
+github.com/aws/smithy-go v1.13.4/go.mod h1:Tg+OJXh4MB2R/uN61Ko2f6hTZwB/ZYGOtib8J3gBHzA=
 github.com/benbjohnson/clock v1.0.3/go.mod h1:bGMdMPoPVvcYyt1gHDf4J2KE153Yf9BuiUKYMaxlTDM=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -1534,6 +1542,8 @@ github.com/pulumi/pulumi/pkg/v3 v3.47.2 h1:gbBm/EpfHIl/xcfbXFmtGaR24WJOxonydypkx
 github.com/pulumi/pulumi/pkg/v3 v3.47.2/go.mod h1:t5zC4ooXKBxX+YIXo/KeTtzWZvp2ndL/mUL4rNAOJnY=
 github.com/pulumi/pulumi/pkg/v3 v3.48.0 h1:AHzLLX8bSAVlqE6WZk3kYPJmP9kpkFtMqjaFpgtN8UM=
 github.com/pulumi/pulumi/pkg/v3 v3.48.0/go.mod h1:9f7Mbv0amXUNDbvG6jHJ4SaGLMEhXseW2KwjDTqvRAo=
+github.com/pulumi/pulumi/pkg/v3 v3.49.0 h1:oglXej8JG8gQ9zwUWPtkUYYfbVB1Td2dqa+GzJhlJkg=
+github.com/pulumi/pulumi/pkg/v3 v3.49.0/go.mod h1:4metm4SXH718jHxL3kQwWTzyJMFEVARH4L5zF1qnCek=
 github.com/pulumi/pulumi/sdk/v3 v3.46.1 h1:z9I0dLP2FPGTrNSIuUtShTNe1SZLSK0//tmWrjDfFrI=
 github.com/pulumi/pulumi/sdk/v3 v3.46.1/go.mod h1:n5EPRVFDh+EFwYZ+oaZmEtwgVN1A6NnI82B7ks/bmTU=
 github.com/pulumi/pulumi/sdk/v3 v3.47.1 h1:PkKlP4RK85u87b0qujM6hS6BJJ2KOo9KCbJGow+TPvg=
@@ -1542,6 +1552,8 @@ github.com/pulumi/pulumi/sdk/v3 v3.47.2 h1:/M17jR1mK5IVkJd1mQcqEGEXdMpwy+qbGMgeH
 github.com/pulumi/pulumi/sdk/v3 v3.47.2/go.mod h1:n5EPRVFDh+EFwYZ+oaZmEtwgVN1A6NnI82B7ks/bmTU=
 github.com/pulumi/pulumi/sdk/v3 v3.48.0 h1:Uf7Cq7oyzEOT+d+/RSfMldtN4MWWtJhOkOwSZnbr4CE=
 github.com/pulumi/pulumi/sdk/v3 v3.48.0/go.mod h1:n5EPRVFDh+EFwYZ+oaZmEtwgVN1A6NnI82B7ks/bmTU=
+github.com/pulumi/pulumi/sdk/v3 v3.49.0 h1:DSIeLJVPj7H+9fWjx/LguqDclzhiz90uhxERbMiHM+A=
+github.com/pulumi/pulumi/sdk/v3 v3.49.0/go.mod h1:58NOiU6vEdA0S8KFiFt4/eqH7vKtWhDFsEGCUFRBovw=
 github.com/rakyll/embedmd v0.0.0-20171029212350-c8060a0752a2/go.mod h1:7jOTMgqac46PZcF54q6l2hkLEG8op93fZu61KmxWDV4=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
