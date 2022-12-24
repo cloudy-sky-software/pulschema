@@ -3,7 +3,7 @@ module github.com/cloudy-sky-software/pulschema
 go 1.18
 
 require (
-	github.com/getkin/kin-openapi v0.111.0
+	github.com/getkin/kin-openapi v0.112.0
 	github.com/golang/glog v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.50.2
