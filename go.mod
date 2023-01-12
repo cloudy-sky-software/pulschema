@@ -7,7 +7,7 @@ require (
 	github.com/golang/glog v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.51.0
-	github.com/pulumi/pulumi/sdk/v3 v3.51.0
+	github.com/pulumi/pulumi/sdk/v3 v3.51.1
 )
 
 require (
