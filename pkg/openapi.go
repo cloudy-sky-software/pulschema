@@ -110,7 +110,7 @@ func index(slice []string, toFind string) int {
 
 func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByCADLNamespace bool) string {
 	var replaceKeywords []string
-	var operationID string
+	var operationIDWithoutVerbPrefix string
 
 	switch method {
 	case http.MethodGet:
@@ -123,17 +123,20 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 		replaceKeywords = append(replaceKeywords, "Delete", "delete")
 	}
 
-	// TODO: check if the OperationIdsHaveCADLNamespace flag has been set.
+	operationIDWithoutNamespace := originalOperationID
+
+	// CADL-generated operations can have an operation ID separated by the namespace
+	// the operation is defined in.
 	if isSeparatedByCADLNamespace {
 		parts := strings.Split(originalOperationID, "_")
-		operationID = parts[len(parts)-1]
+		operationIDWithoutNamespace = parts[len(parts)-1]
 	}
 
 	for _, v := range replaceKeywords {
-		operationID = strings.ReplaceAll(originalOperationID, v, "")
+		operationIDWithoutVerbPrefix = strings.ReplaceAll(operationIDWithoutNamespace, v, "")
 	}
 
-	return operationID
+	return operationIDWithoutVerbPrefix
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -505,7 +508,10 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, _ := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	if err != nil {
+		panic(err)
+	}
 
 	return pschema.FunctionSpec{
 		Description: pathItem.Description,
@@ -924,7 +930,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}, nil
 	}
 
-	return nil, errors.Errorf("failed to generate property types for %+v", propSchema)
+	return nil, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
 }
 
 // genProperties returns a map of the property names and their corresponding
