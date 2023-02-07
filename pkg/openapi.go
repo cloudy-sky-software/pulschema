@@ -110,7 +110,6 @@ func index(slice []string, toFind string) int {
 
 func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByCADLNamespace bool) string {
 	var replaceKeywords []string
-	var operationIDWithoutVerbPrefix string
 
 	switch method {
 	case http.MethodGet:
@@ -123,20 +122,20 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 		replaceKeywords = append(replaceKeywords, "Delete", "delete")
 	}
 
-	operationIDWithoutNamespace := originalOperationID
+	result := originalOperationID
 
 	// CADL-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
 	if isSeparatedByCADLNamespace {
 		parts := strings.Split(originalOperationID, "_")
-		operationIDWithoutNamespace = parts[len(parts)-1]
+		result = parts[len(parts)-1]
 	}
 
 	for _, v := range replaceKeywords {
-		operationIDWithoutVerbPrefix = strings.ReplaceAll(operationIDWithoutNamespace, v, "")
+		result = strings.ReplaceAll(result, v, "")
 	}
 
-	return operationIDWithoutVerbPrefix
+	return result
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
