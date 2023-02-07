@@ -117,8 +117,8 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 		replaceKeywords = append(replaceKeywords, "Get", "get", "List", "list")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "Update", "update")
-	case http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "Set", "set")
+	case http.MethodPost, http.MethodPut:
+		replaceKeywords = append(replaceKeywords, "Create", "create", "Set", "set")
 	case http.MethodDelete:
 		replaceKeywords = append(replaceKeywords, "Delete", "delete")
 	}
@@ -413,7 +413,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		resourceType := jsonReq.Schema.Value
 
 		if resourceType.Title == "" {
-			resourceType.Title = strings.ReplaceAll(pathItem.Post.OperationID, "Create", "")
+			resourceType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveCADLNamespace)
 		}
 
 		if resourceType.Title == "" {
