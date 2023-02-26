@@ -425,7 +425,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 	funcPkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
-		openapiComponents: o.Doc.Components,
+		openapiComponents: *o.Doc.Components,
 		visitedTypes:      codegen.NewStringSet(),
 	}
 
@@ -472,7 +472,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 	funcPkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
-		openapiComponents: o.Doc.Components,
+		openapiComponents: *o.Doc.Components,
 		visitedTypes:      codegen.NewStringSet(),
 	}
 
@@ -568,7 +568,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 		mod:               module,
 		pkg:               o.Pkg,
 		resourceName:      resourceAPISchema.Title,
-		openapiComponents: o.Doc.Components,
+		openapiComponents: *o.Doc.Components,
 		visitedTypes:      codegen.NewStringSet(),
 	}
 
@@ -580,8 +580,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 	for propName, prop := range resourceAPISchema.Properties {
 		var propSpec pschema.PropertySpec
 
-		if prop.Value.AdditionalPropertiesAllowed != nil {
-			allowed := *prop.Value.AdditionalPropertiesAllowed
+		if prop.Value.AdditionalProperties.Has != nil {
+			allowed := *prop.Value.AdditionalProperties.Has
 			if allowed {
 				// There's only ever going to be a single property
 				// in the map, which will either have an inlined
@@ -926,8 +926,8 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var typeSpec *pschema.TypeSpec
 		var err error
 
-		if value.Value.AdditionalPropertiesAllowed != nil {
-			allowed := *value.Value.AdditionalPropertiesAllowed
+		if value.Value.AdditionalProperties.Has != nil {
+			allowed := *value.Value.AdditionalProperties.Has
 			if allowed {
 				// There's only ever going to be a single property
 				// in the map, which will either have an inlined
