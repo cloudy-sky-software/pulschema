@@ -3,7 +3,7 @@ module github.com/cloudy-sky-software/pulschema
 go 1.18
 
 require (
-	github.com/getkin/kin-openapi v0.112.0
+	github.com/getkin/kin-openapi v0.114.0
 	github.com/golang/glog v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.52.1
@@ -147,6 +147,7 @@ require (
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/perimeterx/marshmallow v1.1.4 // indirect
 	github.com/pgavlin/goldmark v1.1.33-0.20200616210433-b5eb04559386 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
