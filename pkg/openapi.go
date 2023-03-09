@@ -51,12 +51,12 @@ type OpenAPIContext struct {
 	// `subResource` instead of a module called `rootResource`.
 	UseParentResourceAsModule bool
 
-	// OperationIdsHaveCADLNamespace indicates if the API operation IDs
+	// OperationIdsHaveTypeSpecNamespace indicates if the API operation IDs
 	// are separated by the CADL namespace they were defined in.
-	OperationIdsHaveCADLNamespace bool
+	OperationIdsHaveTypeSpecNamespace bool
 
-	// CADLNamespaceSeparator is the separator used in the operationId value.
-	CADLNamespaceSeparator string
+	// TypeSpecNamespaceSeparator is the separator used in the operationId value.
+	TypeSpecNamespaceSeparator string
 
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
@@ -207,7 +207,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					if resourceType.Title == "" {
-						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveCADLNamespace)
+						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 					}
 
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
@@ -230,7 +230,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						funcName = "list" + resourceType.Title
 					}
 				} else {
-					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveCADLNamespace)
+					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
@@ -260,7 +260,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			resourceType := jsonReq.Schema.Value
 			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveCADLNamespace)
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
 				return nil, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -321,7 +321,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			resourceType := jsonReq.Schema.Value
 			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveCADLNamespace)
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
 				return nil, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -373,7 +373,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				resourceType := jsonReq.Schema.Value
 				if resourceType.Title == "" {
-					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete, o.OperationIdsHaveCADLNamespace)
+					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				if resourceType.Title == "" {
 					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -391,7 +391,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
-				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveCADLNamespace)
+				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				if resourceTypeTitle == "" {
 					return nil, errors.New("request body schema must have a title or the operation must have an operationid")
 				}
@@ -412,7 +412,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		resourceType := jsonReq.Schema.Value
 
 		if resourceType.Title == "" {
-			resourceType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveCADLNamespace)
+			resourceType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 		}
 
 		if resourceType.Title == "" {
