@@ -51,6 +51,13 @@ type OpenAPIContext struct {
 	// `subResource` instead of a module called `rootResource`.
 	UseParentResourceAsModule bool
 
+	// OperationIdsHaveTypeSpecNamespace indicates if the API operation IDs
+	// are separated by the CADL namespace they were defined in.
+	OperationIdsHaveTypeSpecNamespace bool
+
+	// TypeSpecNamespaceSeparator is the separator used in the operationId value.
+	TypeSpecNamespaceSeparator string
+
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
 	resourceCRUDMap map[string]*CRUDOperationsMap
@@ -101,7 +108,7 @@ func index(slice []string, toFind string) int {
 	return -1
 }
 
-func getResourceTitleFromOperationID(operationID, method string) string {
+func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByCADLNamespace bool) string {
 	var replaceKeywords []string
 
 	switch method {
@@ -109,17 +116,26 @@ func getResourceTitleFromOperationID(operationID, method string) string {
 		replaceKeywords = append(replaceKeywords, "Get", "get", "List", "list")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "Update", "update")
-	case http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "Set", "set")
+	case http.MethodPost, http.MethodPut:
+		replaceKeywords = append(replaceKeywords, "Create", "create", "Set", "set")
 	case http.MethodDelete:
 		replaceKeywords = append(replaceKeywords, "Delete", "delete")
 	}
 
-	for _, v := range replaceKeywords {
-		operationID = strings.ReplaceAll(operationID, v, "")
+	result := originalOperationID
+
+	// CADL-generated operations can have an operation ID separated by the namespace
+	// the operation is defined in.
+	if isSeparatedByCADLNamespace {
+		parts := strings.Split(originalOperationID, "_")
+		result = parts[len(parts)-1]
 	}
 
-	return operationID
+	for _, v := range replaceKeywords {
+		result = strings.ReplaceAll(result, v, "")
+	}
+
+	return result
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -191,7 +207,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					if resourceType.Title == "" {
-						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
+						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 					}
 
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
@@ -214,7 +230,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						funcName = "list" + resourceType.Title
 					}
 				} else {
-					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet)
+					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
@@ -244,7 +260,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			resourceType := jsonReq.Schema.Value
 			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch)
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
 				return nil, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -305,7 +321,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			resourceType := jsonReq.Schema.Value
 			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut)
+				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
 				return nil, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -357,7 +373,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				resourceType := jsonReq.Schema.Value
 				if resourceType.Title == "" {
-					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete)
+					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				if resourceType.Title == "" {
 					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -375,7 +391,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
-				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete)
+				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				if resourceTypeTitle == "" {
 					return nil, errors.New("request body schema must have a title or the operation must have an operationid")
 				}
@@ -396,7 +412,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		resourceType := jsonReq.Schema.Value
 
 		if resourceType.Title == "" {
-			resourceType.Title = strings.ReplaceAll(pathItem.Post.OperationID, "Create", "")
+			resourceType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 		}
 
 		if resourceType.Title == "" {
@@ -491,7 +507,10 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, _ := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	if err != nil {
+		panic(err)
+	}
 
 	return pschema.FunctionSpec{
 		Description: pathItem.Description,
@@ -910,7 +929,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}, nil
 	}
 
-	return nil, errors.Errorf("failed to generate property types for %+v", propSchema)
+	return nil, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
 }
 
 // genProperties returns a map of the property names and their corresponding
