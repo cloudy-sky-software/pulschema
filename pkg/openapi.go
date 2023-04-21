@@ -343,7 +343,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// AS LONG AS the endpoint does not end with a path param. It cannot be used
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if !strings.HasSuffix(currentPath, "}") {
-				if err := o.gatherResource(currentPath, *resourceType, pathItem.Put.Parameters, module); err != nil {
+				if err := o.gatherResource(currentPath, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
 					return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
 
@@ -409,17 +409,26 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			return nil, errors.Errorf("path %s has no api schema definition for post method", currentPath)
 		}
 
-		resourceType := jsonReq.Schema.Value
+		resourceRequestType := jsonReq.Schema.Value
 
-		if resourceType.Title == "" {
-			resourceType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
+		statusCodeOkResp := pathItem.Post.Responses.Get(200)
+		var resourceResponseType *openapi3.Schema
+		if statusCodeOkResp != nil {
+			jsonResp := statusCodeOkResp.Value.Content.Get(jsonMimeType)
+			if jsonResp != nil {
+				resourceResponseType = jsonResp.Schema.Value
+			}
 		}
 
-		if resourceType.Title == "" {
+		if resourceRequestType.Title == "" {
+			resourceRequestType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
+		}
+
+		if resourceRequestType.Title == "" {
 			return nil, errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 		}
 
-		if err := o.gatherResource(currentPath, *resourceType, pathItem.Post.Parameters, module); err != nil {
+		if err := o.gatherResource(currentPath, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
 			return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
 
@@ -533,24 +542,25 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 // adds it to the Pulumi schema spec.
 func (o *OpenAPIContext) gatherResource(
 	apiPath string,
-	resourceType openapi3.Schema,
+	resourceRequestType openapi3.Schema,
+	resourceResponseType *openapi3.Schema,
 	pathParams openapi3.Parameters,
 	module string) error {
 	var resourceTypeToken *string
 	var err error
 
-	if resourceType.Discriminator != nil {
-		for _, mappingRef := range resourceType.Discriminator.Mapping {
+	if resourceRequestType.Discriminator != nil {
+		for _, mappingRef := range resourceRequestType.Discriminator.Mapping {
 			schemaName := strings.TrimPrefix(mappingRef, componentsSchemaRefPrefix)
 			typeSchema, ok := o.Doc.Components.Schemas[schemaName]
 			if !ok {
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			resourceTypeToken, err = o.gatherResourceProperties(*typeSchema.Value, apiPath, module)
+			resourceTypeToken, err = o.gatherResourceProperties(*typeSchema.Value, resourceResponseType, apiPath, module)
 		}
 	} else {
-		resourceTypeToken, err = o.gatherResourceProperties(resourceType, apiPath, module)
+		resourceTypeToken, err = o.gatherResourceProperties(resourceRequestType, resourceResponseType, apiPath, module)
 	}
 
 	if err != nil {
@@ -582,11 +592,11 @@ func (o *OpenAPIContext) gatherResource(
 
 // gatherResourceProperties generates a resource spec's input and output properties
 // based on its API schema. Returns the Pulumi type token for the newly-added resource.
-func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Schema, apiPath, module string) (*string, error) {
+func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Schema, responseBodySchema *openapi3.Schema, apiPath, module string) (*string, error) {
 	pkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
-		resourceName:      resourceAPISchema.Title,
+		resourceName:      requestBodySchema.Title,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      codegen.NewStringSet(),
 	}
@@ -594,9 +604,9 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 	inputProperties := make(map[string]pschema.PropertySpec)
 	properties := make(map[string]pschema.PropertySpec)
 	requiredInputs := codegen.NewStringSet()
-	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceAPISchema.Title)
+	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, requestBodySchema.Title)
 
-	for propName, prop := range resourceAPISchema.Properties {
+	for propName, prop := range requestBodySchema.Properties {
 		var propSpec pschema.PropertySpec
 
 		if prop.Value.AdditionalProperties.Has != nil {
@@ -631,18 +641,64 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 			inputProperties[propName] = propSpec
 		}
 
-		// Don't add `id` to the output properties since Pulumi
-		// automatically adds that via `CustomResource` which
-		// is what all resources in the SDK will extend.
-		if propName != "id" {
-			properties[propName] = propSpec
+		// Don't combine the if-condition for readability's sake.
+		//
+		// Only add this prop to the output properties set if we don't have
+		// a separate response body schema.
+		if responseBodySchema == nil {
+			// Don't add `id` to the output properties since Pulumi
+			// automatically adds that via `CustomResource` which
+			// is what all resources in the SDK will extend.
+			if propName != "id" {
+				properties[propName] = propSpec
+			}
+		}
+	}
+
+	if responseBodySchema != nil {
+		for propName, prop := range responseBodySchema.Properties {
+			var propSpec pschema.PropertySpec
+
+			if prop.Value.AdditionalProperties.Has != nil {
+				allowed := *prop.Value.AdditionalProperties.Has
+				if allowed {
+					// There's only ever going to be a single property
+					// in the map, which will either have an inlined
+					// properties schema or have a type ref. Either way,
+					// the `propertyTypeSpec` method will take care of it.
+					for _, v := range prop.Value.Properties {
+						typeSpec, err := pkgCtx.propertyTypeSpec(propName, *v)
+						if err != nil {
+							return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
+						}
+
+						propSpec = pschema.PropertySpec{
+							TypeSpec: pschema.TypeSpec{
+								Type:                 "object",
+								AdditionalProperties: typeSpec,
+							},
+						}
+					}
+				} else {
+					propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
+				}
+			} else {
+				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
+			}
+
+			// Don't add `id` to the output properties since Pulumi
+			// automatically adds that via `CustomResource` which
+			// is what all resources in the SDK will extend.
+			if propName != "id" {
+				properties[propName] = propSpec
+			}
 		}
 	}
 
 	// Create a set of required inputs for this resource.
 	// Filter out required props that are marked as read-only.
-	for _, requiredProp := range resourceAPISchema.Required {
-		propSchema := resourceAPISchema.Properties[requiredProp]
+	for _, requiredProp := range requestBodySchema.Required {
+		propSchema := requestBodySchema.Properties[requiredProp]
 		// `name` property is not strictly required as Pulumi can auto-name it
 		// based on the Pulumi resource name.
 		if propSchema.Value.ReadOnly {
@@ -661,13 +717,13 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 		requiredInputs.Add(requiredProp)
 	}
 
-	if len(resourceAPISchema.AllOf) > 0 {
-		parentName := ToPascalCase(resourceAPISchema.Title)
+	if len(requestBodySchema.AllOf) > 0 {
+		parentName := ToPascalCase(requestBodySchema.Title)
 		var types []pschema.TypeSpec
-		for _, schemaRef := range resourceAPISchema.AllOf {
+		for _, schemaRef := range requestBodySchema.AllOf {
 			typ, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
-				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", resourceAPISchema.Title)
+				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", requestBodySchema.Title)
 			}
 			types = append(types, *typ)
 		}
@@ -706,10 +762,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 
 		o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
-				Description: resourceAPISchema.Description,
+				Description: requestBodySchema.Description,
 				Type:        "object",
 				Properties:  properties,
-				Required:    resourceAPISchema.Required,
+				Required:    requestBodySchema.Required,
 			},
 			InputProperties: inputProperties,
 			RequiredInputs:  requiredInputs.SortedValues(),
@@ -728,10 +784,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceAPISchema openapi3.Sch
 
 	o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
-			Description: resourceAPISchema.Description,
+			Description: requestBodySchema.Description,
 			Type:        "object",
 			Properties:  properties,
-			Required:    resourceAPISchema.Required,
+			Required:    requestBodySchema.Required,
 		},
 		InputProperties: inputProperties,
 		RequiredInputs:  requiredInputs.SortedValues(),
