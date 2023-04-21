@@ -604,6 +604,7 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	inputProperties := make(map[string]pschema.PropertySpec)
 	properties := make(map[string]pschema.PropertySpec)
 	requiredInputs := codegen.NewStringSet()
+	requiredOutputs := codegen.NewStringSet()
 	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, requestBodySchema.Title)
 
 	for propName, prop := range requestBodySchema.Properties {
@@ -717,6 +718,17 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		requiredInputs.Add(requiredProp)
 	}
 
+	// Create a set of required outputs.
+	if responseBodySchema != nil {
+		for _, required := range responseBodySchema.Required {
+			requiredOutputs.Add(required)
+		}
+	} else {
+		for _, required := range requiredInputs.SortedValues() {
+			requiredOutputs.Add(required)
+		}
+	}
+
 	if len(requestBodySchema.AllOf) > 0 {
 		parentName := ToPascalCase(requestBodySchema.Title)
 		var types []pschema.TypeSpec
@@ -787,7 +799,7 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 			Description: requestBodySchema.Description,
 			Type:        "object",
 			Properties:  properties,
-			Required:    requestBodySchema.Required,
+			Required:    requiredOutputs.SortedValues(),
 		},
 		InputProperties: inputProperties,
 		RequiredInputs:  requiredInputs.SortedValues(),
