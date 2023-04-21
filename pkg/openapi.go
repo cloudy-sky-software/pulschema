@@ -642,17 +642,13 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 			inputProperties[propName] = propSpec
 		}
 
-		// Don't combine the if-condition for readability's sake.
-		//
-		// Only add this prop to the output properties set if we don't have
-		// a separate response body schema.
-		if responseBodySchema == nil {
-			// Don't add `id` to the output properties since Pulumi
-			// automatically adds that via `CustomResource` which
-			// is what all resources in the SDK will extend.
-			if propName != "id" {
-				properties[propName] = propSpec
-			}
+		// - All input properties must also be available as output
+		// properties.
+		// - Don't add `id` to the output properties since Pulumi
+		// automatically adds that via `CustomResource` which
+		// is what all resources in the SDK will extend.
+		if propName != "id" {
+			properties[propName] = propSpec
 		}
 	}
 
