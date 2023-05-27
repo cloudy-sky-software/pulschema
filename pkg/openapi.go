@@ -715,12 +715,18 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	}
 
 	// Create a set of required outputs.
+	// Use the `Required` property of the request body schema,
+	// instead of `requiredInputs` sorted set because the `Required`
+	// properties in the OpenAPI spec could all be marked as
+	// read-only in which case, they wouldn't have been
+	// added to the `requiredInputs` set.
+	for _, required := range requestBodySchema.Required {
+		requiredOutputs.Add(required)
+	}
+	// If there is a response body schema, then add its required
+	// properties as well.
 	if responseBodySchema != nil {
 		for _, required := range responseBodySchema.Required {
-			requiredOutputs.Add(required)
-		}
-	} else {
-		for _, required := range requiredInputs.SortedValues() {
 			requiredOutputs.Add(required)
 		}
 	}
@@ -773,7 +779,7 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 				Description: requestBodySchema.Description,
 				Type:        "object",
 				Properties:  properties,
-				Required:    requestBodySchema.Required,
+				Required:    requiredOutputs.SortedValues(),
 			},
 			InputProperties: inputProperties,
 			RequiredInputs:  requiredInputs.SortedValues(),
