@@ -6,8 +6,8 @@ require (
 	github.com/getkin/kin-openapi v0.118.0
 	github.com/golang/glog v1.1.2
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/pkg/v3 v3.78.0
-	github.com/pulumi/pulumi/sdk/v3 v3.78.0
+	github.com/pulumi/pulumi/pkg/v3 v3.78.1
+	github.com/pulumi/pulumi/sdk/v3 v3.78.1
 )
 
 require (
@@ -37,7 +37,7 @@ require (
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.200 // indirect
+	github.com/aws/aws-sdk-go v1.44.298 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.17.4 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.10 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.12 // indirect
