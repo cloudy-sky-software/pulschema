@@ -2033,6 +2033,8 @@ github.com/pulumi/pulumi/pkg/v3 v3.79.0 h1:Rzrv7pmn51D7r41ua/wtQxhSt0ZM0bx4JrXvi
 github.com/pulumi/pulumi/pkg/v3 v3.79.0/go.mod h1:VHC3YWL53JMEbsuq6nj3M93G9TiB1L6aVxjepjnJKTY=
 github.com/pulumi/pulumi/pkg/v3 v3.80.0 h1:Rw+c87RH8xDwP3jvoTjc8A04E2aNdlIuTNwwr54oWDw=
 github.com/pulumi/pulumi/pkg/v3 v3.80.0/go.mod h1:Hndd/WMKdr+PwIg9JfIcscjegIDcbc8dFDOBwmlo1n8=
+github.com/pulumi/pulumi/pkg/v3 v3.81.0 h1:6rf2farQLszi8inHCu9YdJtDvK0fqNguix51b3FEDRQ=
+github.com/pulumi/pulumi/pkg/v3 v3.81.0/go.mod h1:URXozJB/abhxb2yOwa5ywHjT2dqt9SmAX2iLkdcOOl0=
 github.com/pulumi/pulumi/sdk/v3 v3.76.0 h1:aqZxTCOArIYe5rsEbyc7MEQ2xLRvNeIuerbOCRlKKz0=
 github.com/pulumi/pulumi/sdk/v3 v3.76.0/go.mod h1:HiE9Wf+DVrg8Em1D6bxRCdDMsNkj8//vLCST73xH2Hc=
 github.com/pulumi/pulumi/sdk/v3 v3.76.1 h1:ItfwcLvxAyX+Pl+BPgx+J5mhKF3/LWOMls/vneTXp9o=
@@ -2049,6 +2051,8 @@ github.com/pulumi/pulumi/sdk/v3 v3.79.0 h1:GJ46WDwJ78jQ9qJW0nI1WdnypjCNkRQG9rVym
 github.com/pulumi/pulumi/sdk/v3 v3.79.0/go.mod h1:FEFictCHoa8CYzKDSc0t9ErrNiaO9n7pChreLQLDH+M=
 github.com/pulumi/pulumi/sdk/v3 v3.80.0 h1:4UfNidAAl7X6/G6+USvh0eRiiURtsfsJY9GWK2REH5E=
 github.com/pulumi/pulumi/sdk/v3 v3.80.0/go.mod h1:RMilNNVMlmK1h4Nl/qylb9vzbgh4F3mufZoUOnPy98o=
+github.com/pulumi/pulumi/sdk/v3 v3.81.0 h1:d711GUpjZK1beNpIKFReC1LBmHXYE684sYWntJWQ4Q0=
+github.com/pulumi/pulumi/sdk/v3 v3.81.0/go.mod h1:RMilNNVMlmK1h4Nl/qylb9vzbgh4F3mufZoUOnPy98o=
 github.com/rakyll/embedmd v0.0.0-20171029212350-c8060a0752a2/go.mod h1:7jOTMgqac46PZcF54q6l2hkLEG8op93fZu61KmxWDV4=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
