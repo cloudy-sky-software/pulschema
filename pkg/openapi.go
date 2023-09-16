@@ -373,7 +373,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				resourceType := jsonReq.Schema.Value
 				if resourceType.Title == "" {
-					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					resourceType.Title = getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				if resourceType.Title == "" {
 					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -411,7 +411,23 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		resourceRequestType := jsonReq.Schema.Value
 
-		statusCodeOkResp := pathItem.Post.Responses.Get(200)
+		// Usually 201 and 202 status codes don't have response bodies,
+		// but some OpenAPI specs seem to have a response body for those
+		// status codes. For example, DigitalOcean responds with 202
+		// for a request to provision Floating IPs that may not be
+		// fully provisioned yet.
+		responseCodes := []int{200, 201, 202}
+		var statusCodeOkResp *openapi3.ResponseRef
+		for code := range responseCodes {
+			statusCodeOkResp = pathItem.Post.Responses.Get(code)
+
+			// Stop looking for response body schema if we found
+			// one already.
+			if statusCodeOkResp != nil {
+				break
+			}
+		}
+
 		var resourceResponseType *openapi3.Schema
 		if statusCodeOkResp != nil {
 			jsonResp := statusCodeOkResp.Value.Content.Get(jsonMimeType)
