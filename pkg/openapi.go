@@ -5,6 +5,7 @@ package pkg
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -24,6 +25,8 @@ const componentsSchemaRefPrefix = "#/components/schemas/"
 const jsonMimeType = "application/json"
 const arrayType = "array"
 const parameterLocationPath = "path"
+
+var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
 
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
@@ -82,7 +85,15 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	return parts[0]
+
+	// If the first item in parts is not a version number prefix, then
+	// return as-is.
+	if !versionRegex.Match([]byte(parts[0])) {
+		return parts[0]
+	}
+
+	// Otherwise, we should use a versioned module.
+	return parts[1] + "/" + parts[0]
 }
 
 func getParentPath(path string) string {
@@ -108,34 +119,45 @@ func index(slice []string, toFind string) int {
 	return -1
 }
 
-func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByCADLNamespace bool) string {
+func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByTypeSpecNamespace bool) string {
 	var replaceKeywords []string
 
 	switch method {
 	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "Get", "get", "List", "list")
+		replaceKeywords = append(replaceKeywords, "get", "list")
 	case http.MethodPatch:
-		replaceKeywords = append(replaceKeywords, "Update", "update")
+		replaceKeywords = append(replaceKeywords, "update")
 	case http.MethodPost, http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "Create", "create", "Set", "set")
+		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
 	case http.MethodDelete:
-		replaceKeywords = append(replaceKeywords, "Delete", "delete")
+		replaceKeywords = append(replaceKeywords, "delete")
 	}
 
 	result := originalOperationID
 
-	// CADL-generated operations can have an operation ID separated by the namespace
+	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
-	if isSeparatedByCADLNamespace {
+	if isSeparatedByTypeSpecNamespace {
 		parts := strings.Split(originalOperationID, "_")
 		result = parts[len(parts)-1]
+	} else if strings.Contains(originalOperationID, "_") {
+		parts := strings.Split(originalOperationID, "_")
+		result = parts[0]
+		for _, p := range parts[1:] {
+			result += ToPascalCase(p)
+		}
 	}
 
 	for _, v := range replaceKeywords {
 		result = strings.ReplaceAll(result, v, "")
+		result = strings.ReplaceAll(result, ToPascalCase(v), "")
 	}
 
-	return result
+	resourceTitle := ToPascalCase(result)
+
+	glog.Infof("converted operation ID %s to resource title %s\n", originalOperationID, resourceTitle)
+
+	return resourceTitle
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -233,8 +255,12 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-				funcSpec := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
-				o.Pkg.Functions[funcTypeToken] = funcSpec
+				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
+				if err != nil {
+					return nil, errors.Wrap(err, "generating list function")
+				}
+
+				o.Pkg.Functions[funcTypeToken] = *funcSpec
 				setReadOperationMapping(funcTypeToken)
 			}
 		}
@@ -418,7 +444,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// fully provisioned yet.
 		responseCodes := []int{200, 201, 202}
 		var statusCodeOkResp *openapi3.ResponseRef
-		for code := range responseCodes {
+		for _, code := range responseCodes {
 			statusCodeOkResp = pathItem.Post.Responses.Get(code)
 
 			// Stop looking for response body schema if we found
@@ -461,7 +487,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // The item type can have a discriminator in the schema. This method will return a type
 // that will refer to an output type that uses the discriminator properties to correctly
 // type the output result.
-func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) pschema.FunctionSpec {
+func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
 	funcPkgCtx := &resourceContext{
 		mod:               module,
@@ -485,9 +511,12 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, _ := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	if err != nil {
+		return nil, errors.Wrap(err, "generating property type spec for response schema")
+	}
 
-	return pschema.FunctionSpec{
+	return &pschema.FunctionSpec{
 		Description: pathItem.Description,
 		Inputs: &pschema.ObjectTypeSpec{
 			Properties: inputProps,
@@ -501,7 +530,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 			},
 			Required: []string{"items"},
 		},
-	}
+	}, nil
 }
 
 // genGetFunc returns a function spec for a GET API endpoint that returns a single object.
@@ -886,7 +915,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			ctx.visitedTypes.Add(tok)
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "generating properties for %s", typName)
 			}
 
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
