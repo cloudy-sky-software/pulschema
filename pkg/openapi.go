@@ -5,6 +5,7 @@ package pkg
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -24,6 +25,8 @@ const componentsSchemaRefPrefix = "#/components/schemas/"
 const jsonMimeType = "application/json"
 const arrayType = "array"
 const parameterLocationPath = "path"
+
+var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
 
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
@@ -82,7 +85,15 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
-	return parts[0]
+
+	// If the first item in parts is not a version number prefix, then
+	// return as-is.
+	if !versionRegex.Match([]byte(parts[0])) {
+		return parts[0]
+	}
+
+	// Otherwise, we should use a versioned module.
+	return parts[1] + "/" + parts[0]
 }
 
 func getParentPath(path string) string {
@@ -108,34 +119,45 @@ func index(slice []string, toFind string) int {
 	return -1
 }
 
-func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByCADLNamespace bool) string {
+func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByTypeSpecNamespace bool) string {
 	var replaceKeywords []string
 
 	switch method {
 	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "Get", "get", "List", "list")
+		replaceKeywords = append(replaceKeywords, "get", "list")
 	case http.MethodPatch:
-		replaceKeywords = append(replaceKeywords, "Update", "update")
+		replaceKeywords = append(replaceKeywords, "update")
 	case http.MethodPost, http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "Create", "create", "Set", "set")
+		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
 	case http.MethodDelete:
-		replaceKeywords = append(replaceKeywords, "Delete", "delete")
+		replaceKeywords = append(replaceKeywords, "delete")
 	}
 
 	result := originalOperationID
 
-	// CADL-generated operations can have an operation ID separated by the namespace
+	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
-	if isSeparatedByCADLNamespace {
+	if isSeparatedByTypeSpecNamespace {
 		parts := strings.Split(originalOperationID, "_")
 		result = parts[len(parts)-1]
+	} else if strings.Contains(originalOperationID, "_") {
+		parts := strings.Split(originalOperationID, "_")
+		result = parts[0]
+		for _, p := range parts[1:] {
+			result += ToPascalCase(p)
+		}
 	}
 
 	for _, v := range replaceKeywords {
 		result = strings.ReplaceAll(result, v, "")
+		result = strings.ReplaceAll(result, ToPascalCase(v), "")
 	}
 
-	return result
+	resourceTitle := ToPascalCase(result)
+
+	glog.Infof("converted operation ID %s to resource title %s\n", originalOperationID, resourceTitle)
+
+	return resourceTitle
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -233,8 +255,12 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-				funcSpec := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
-				o.Pkg.Functions[funcTypeToken] = funcSpec
+				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
+				if err != nil {
+					return nil, errors.Wrap(err, "generating list function")
+				}
+
+				o.Pkg.Functions[funcTypeToken] = *funcSpec
 				setReadOperationMapping(funcTypeToken)
 			}
 		}
@@ -373,7 +399,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				resourceType := jsonReq.Schema.Value
 				if resourceType.Title == "" {
-					resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					resourceType.Title = getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				if resourceType.Title == "" {
 					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
@@ -411,7 +437,23 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		resourceRequestType := jsonReq.Schema.Value
 
-		statusCodeOkResp := pathItem.Post.Responses.Get(200)
+		// Usually 201 and 202 status codes don't have response bodies,
+		// but some OpenAPI specs seem to have a response body for those
+		// status codes. For example, DigitalOcean responds with 202
+		// for a request to provision Floating IPs that may not be
+		// fully provisioned yet.
+		responseCodes := []int{200, 201, 202}
+		var statusCodeOkResp *openapi3.ResponseRef
+		for _, code := range responseCodes {
+			statusCodeOkResp = pathItem.Post.Responses.Get(code)
+
+			// Stop looking for response body schema if we found
+			// one already.
+			if statusCodeOkResp != nil {
+				break
+			}
+		}
+
 		var resourceResponseType *openapi3.Schema
 		if statusCodeOkResp != nil {
 			jsonResp := statusCodeOkResp.Value.Content.Get(jsonMimeType)
@@ -445,7 +487,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // The item type can have a discriminator in the schema. This method will return a type
 // that will refer to an output type that uses the discriminator properties to correctly
 // type the output result.
-func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) pschema.FunctionSpec {
+func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
 	funcPkgCtx := &resourceContext{
 		mod:               module,
@@ -469,9 +511,12 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, _ := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	if err != nil {
+		return nil, errors.Wrap(err, "generating property type spec for response schema")
+	}
 
-	return pschema.FunctionSpec{
+	return &pschema.FunctionSpec{
 		Description: pathItem.Description,
 		Inputs: &pschema.ObjectTypeSpec{
 			Properties: inputProps,
@@ -485,7 +530,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 			},
 			Required: []string{"items"},
 		},
-	}
+	}, nil
 }
 
 // genGetFunc returns a function spec for a GET API endpoint that returns a single object.
@@ -696,6 +741,16 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	// Filter out required props that are marked as read-only.
 	for _, requiredProp := range requestBodySchema.Required {
 		propSchema := requestBodySchema.Properties[requiredProp]
+
+		// If the required property's schema is not found,
+		// it's likely that the OpenAPI doc lists the
+		// required props that belong to some referenced
+		// type. So ignore this.
+		if propSchema == nil {
+			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, requestBodySchema.Title)
+			continue
+		}
+
 		// `name` property is not strictly required as Pulumi can auto-name it
 		// based on the Pulumi resource name.
 		if propSchema.Value.ReadOnly {
@@ -735,6 +790,10 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		parentName := ToPascalCase(requestBodySchema.Title)
 		var types []pschema.TypeSpec
 		for _, schemaRef := range requestBodySchema.AllOf {
+			if schemaRef == nil || schemaRef.Value == nil || schemaRef.Value.Type != "object" {
+				continue
+			}
+
 			typ, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
 				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", requestBodySchema.Title)
@@ -870,7 +929,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			ctx.visitedTypes.Add(tok)
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "generating properties for %s", typName)
 			}
 
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
@@ -946,7 +1005,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	}
 
 	if len(propSchema.Value.AllOf) > 0 {
-		properties, requiredSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
+		properties, requiredPropSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
 		if err != nil {
 			return nil, errors.Wrap(err, "generating properties from allOf schema definition")
 		}
@@ -957,7 +1016,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 				Description: propSchema.Value.Description,
 				Type:        "object",
 				Properties:  properties,
-				Required:    requiredSpecs.SortedValues(),
+				Required:    requiredPropSpecs.SortedValues(),
 			},
 		}
 
@@ -1076,6 +1135,11 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf openapi3.SchemaRefs) (map[string]pschema.PropertySpec, codegen.StringSet, error) {
 	var types []pschema.TypeSpec
 	for _, schemaRef := range allOf {
+		if schemaRef.Ref == "" && schemaRef.Value.Type != "object" {
+			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
+			continue
+		}
+
 		typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
 			return nil, nil, err
@@ -1110,38 +1174,69 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	return properties, requiredSpecs, nil
 }
 
+func getStringEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0)
+	names := codegen.NewStringSet()
+
+	for _, val := range rawEnumValues {
+		name := ToPascalCase(val.(string))
+		if names.Has(name) {
+			continue
+		}
+
+		names.Add(name)
+		enumVal := pschema.EnumValueSpec{
+			Value: val,
+			Name:  name,
+		}
+		enums = append(enums, enumVal)
+	}
+
+	return enums, names
+}
+
+func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0)
+	names := codegen.NewStringSet()
+
+	for _, val := range rawEnumValues {
+		name := fmt.Sprintf("%d", val)
+		enumVal := pschema.EnumValueSpec{
+			Value: val,
+			Name:  name,
+		}
+		names.Add(name)
+		enums = append(enums, enumVal)
+	}
+
+	return enums, names
+}
+
 // genEnumType generates the enum type for a given schema.
 func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Schema) (*pschema.TypeSpec, error) {
 	if len(propSchema.Type) == 0 {
 		return nil, nil
-	}
-	if propSchema.Type != openapi3.TypeString {
-		return nil, errors.Errorf("only string enum types are supported")
 	}
 
 	typName := ToPascalCase(enumName)
 	tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
 	enumSpec := &pschema.ComplexTypeSpec{
-		Enum: []pschema.EnumValueSpec{},
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: propSchema.Description,
-			Type:        "string",
+			Type:        propSchema.Type,
 		},
 	}
 
-	values := codegen.NewStringSet()
-	for _, val := range propSchema.Enum {
-		str := ToPascalCase(val.(string))
-		if values.Has(str) {
-			continue
-		}
-		values.Add(str)
-		enumVal := pschema.EnumValueSpec{
-			Value: val,
-			Name:  str,
-		}
-		enumSpec.Enum = append(enumSpec.Enum, enumVal)
+	var names codegen.StringSet
+
+	switch propSchema.Type {
+	case openapi3.TypeString:
+		enumSpec.Enum, names = getStringEnumValues(propSchema.Enum)
+	case openapi3.TypeInteger:
+		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
+	default:
+		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
 	}
 
 	referencedTypeName := fmt.Sprintf("#/types/%s", tok)
@@ -1153,7 +1248,7 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	if other, ok := ctx.pkg.Types[tok]; ok {
 		same := len(enumSpec.Enum) == len(other.Enum)
 		for _, val := range other.Enum {
-			same = same && values.Has(val.Name)
+			same = same && names.Has(val.Name)
 		}
 		if !same {
 			msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
