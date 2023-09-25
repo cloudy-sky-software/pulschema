@@ -741,6 +741,16 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	// Filter out required props that are marked as read-only.
 	for _, requiredProp := range requestBodySchema.Required {
 		propSchema := requestBodySchema.Properties[requiredProp]
+
+		// If the required property's schema is not found,
+		// it's likely that the OpenAPI doc lists the
+		// required props that belong to some referenced
+		// type. So ignore this.
+		if propSchema == nil {
+			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, requestBodySchema.Title)
+			continue
+		}
+
 		// `name` property is not strictly required as Pulumi can auto-name it
 		// based on the Pulumi resource name.
 		if propSchema.Value.ReadOnly {
@@ -780,6 +790,10 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		parentName := ToPascalCase(requestBodySchema.Title)
 		var types []pschema.TypeSpec
 		for _, schemaRef := range requestBodySchema.AllOf {
+			if schemaRef == nil || schemaRef.Value == nil || schemaRef.Value.Type != "object" {
+				continue
+			}
+
 			typ, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
 				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", requestBodySchema.Title)
@@ -991,7 +1005,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	}
 
 	if len(propSchema.Value.AllOf) > 0 {
-		properties, requiredSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
+		properties, requiredPropSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
 		if err != nil {
 			return nil, errors.Wrap(err, "generating properties from allOf schema definition")
 		}
@@ -1002,7 +1016,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 				Description: propSchema.Value.Description,
 				Type:        "object",
 				Properties:  properties,
-				Required:    requiredSpecs.SortedValues(),
+				Required:    requiredPropSpecs.SortedValues(),
 			},
 		}
 
@@ -1121,6 +1135,11 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf openapi3.SchemaRefs) (map[string]pschema.PropertySpec, codegen.StringSet, error) {
 	var types []pschema.TypeSpec
 	for _, schemaRef := range allOf {
+		if schemaRef.Ref == "" && schemaRef.Value.Type != "object" {
+			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
+			continue
+		}
+
 		typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
 			return nil, nil, err
@@ -1155,38 +1174,69 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	return properties, requiredSpecs, nil
 }
 
+func getStringEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0)
+	names := codegen.NewStringSet()
+
+	for _, val := range rawEnumValues {
+		name := ToPascalCase(val.(string))
+		if names.Has(name) {
+			continue
+		}
+
+		names.Add(name)
+		enumVal := pschema.EnumValueSpec{
+			Value: val,
+			Name:  name,
+		}
+		enums = append(enums, enumVal)
+	}
+
+	return enums, names
+}
+
+func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0)
+	names := codegen.NewStringSet()
+
+	for _, val := range rawEnumValues {
+		name := fmt.Sprintf("%d", val)
+		enumVal := pschema.EnumValueSpec{
+			Value: val,
+			Name:  name,
+		}
+		names.Add(name)
+		enums = append(enums, enumVal)
+	}
+
+	return enums, names
+}
+
 // genEnumType generates the enum type for a given schema.
 func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Schema) (*pschema.TypeSpec, error) {
 	if len(propSchema.Type) == 0 {
 		return nil, nil
-	}
-	if propSchema.Type != openapi3.TypeString {
-		return nil, errors.Errorf("only string enum types are supported")
 	}
 
 	typName := ToPascalCase(enumName)
 	tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
 	enumSpec := &pschema.ComplexTypeSpec{
-		Enum: []pschema.EnumValueSpec{},
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: propSchema.Description,
-			Type:        "string",
+			Type:        propSchema.Type,
 		},
 	}
 
-	values := codegen.NewStringSet()
-	for _, val := range propSchema.Enum {
-		str := ToPascalCase(val.(string))
-		if values.Has(str) {
-			continue
-		}
-		values.Add(str)
-		enumVal := pschema.EnumValueSpec{
-			Value: val,
-			Name:  str,
-		}
-		enumSpec.Enum = append(enumSpec.Enum, enumVal)
+	var names codegen.StringSet
+
+	switch propSchema.Type {
+	case openapi3.TypeString:
+		enumSpec.Enum, names = getStringEnumValues(propSchema.Enum)
+	case openapi3.TypeInteger:
+		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
+	default:
+		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
 	}
 
 	referencedTypeName := fmt.Sprintf("#/types/%s", tok)
@@ -1198,7 +1248,7 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	if other, ok := ctx.pkg.Types[tok]; ok {
 		same := len(enumSpec.Enum) == len(other.Enum)
 		for _, val := range other.Enum {
-			same = same && values.Has(val.Name)
+			same = same && names.Has(val.Name)
 		}
 		if !same {
 			msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
