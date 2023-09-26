@@ -2001,10 +2001,14 @@ github.com/pulumi/pulumi/pkg/v3 v3.84.0 h1:rlW16HT/5xx1RDPXkSIDeZ81G/vndeaA3uyVg
 github.com/pulumi/pulumi/pkg/v3 v3.84.0/go.mod h1:zb1ENMSRtFyPs2yFnx9+OCMrqJezTDjTjiadGvQNcGs=
 github.com/pulumi/pulumi/pkg/v3 v3.85.0 h1:yk+Nr5U1wd2jOrrvX1WB3RYC4cw42SeY2igWxlxee0Q=
 github.com/pulumi/pulumi/pkg/v3 v3.85.0/go.mod h1:jNgGFnA/dHm9jrd+ROeXMIBoWICS27U4EOjUqL8EP08=
+github.com/pulumi/pulumi/pkg/v3 v3.86.0 h1:G4spuT89ZN8lSxT9WkMF/JaP7n+wu7ubEly7Yy8uza0=
+github.com/pulumi/pulumi/pkg/v3 v3.86.0/go.mod h1:Qs55gPhUwM/Dua3VRtHXLLlpY8uEe+llDBIZc+1pvHM=
 github.com/pulumi/pulumi/sdk/v3 v3.84.0 h1:/vCRj6ATGVZw4pFmG7pZgjlKUcnbbnb9vmlqd+OpdXo=
 github.com/pulumi/pulumi/sdk/v3 v3.84.0/go.mod h1:RMilNNVMlmK1h4Nl/qylb9vzbgh4F3mufZoUOnPy98o=
 github.com/pulumi/pulumi/sdk/v3 v3.85.0 h1:DRhwuwpd9lmo2gJUCAftsv/7avjUZio2NlLSprloh8Q=
 github.com/pulumi/pulumi/sdk/v3 v3.85.0/go.mod h1:vexSGJ5L834l3T7Fo/KpdywjGAgZ2CvChuqGFl+ebS0=
+github.com/pulumi/pulumi/sdk/v3 v3.86.0 h1:Cxg0rGdvMt9GqGvesFTj8+WaO/ihmALYlQf4zm1GzFw=
+github.com/pulumi/pulumi/sdk/v3 v3.86.0/go.mod h1:vexSGJ5L834l3T7Fo/KpdywjGAgZ2CvChuqGFl+ebS0=
 github.com/rakyll/embedmd v0.0.0-20171029212350-c8060a0752a2/go.mod h1:7jOTMgqac46PZcF54q6l2hkLEG8op93fZu61KmxWDV4=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
