@@ -21,10 +21,13 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 )
 
-const componentsSchemaRefPrefix = "#/components/schemas/"
-const jsonMimeType = "application/json"
-const arrayType = "array"
-const parameterLocationPath = "path"
+const (
+	componentsSchemaRefPrefix = "#/components/schemas/"
+	jsonMimeType              = "application/json"
+	arrayType                 = "array"
+	parameterLocationPath     = "path"
+	pathSeparator             = "/"
+)
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
 
@@ -80,11 +83,11 @@ func (d *duplicateEnumError) Error() string {
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	if useParentResourceAsModule {
 		parentPath := getParentPath(path)
-		parentParts := strings.Split(strings.TrimPrefix(parentPath, "/"), "/")
+		parentParts := strings.Split(strings.TrimPrefix(parentPath, pathSeparator), pathSeparator)
 		return parentParts[len(parentParts)-1]
 	}
 
-	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
 
 	// If the first item in parts is not a version number prefix, then
 	// return as-is.
@@ -93,18 +96,18 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	}
 
 	// Otherwise, we should use a versioned module.
-	return parts[1] + "/" + parts[0]
+	return parts[1] + pathSeparator + parts[0]
 }
 
 func getParentPath(path string) string {
-	parts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
 	lastPathPart := parts[len(parts)-1]
 	if !strings.HasPrefix(lastPathPart, "{") && !strings.HasSuffix(lastPathPart, "}") {
 		return path
 	}
 
 	// Skip the last path part which contains a path parameter.
-	return "/" + strings.Join(parts[0:len(parts)-1], "/")
+	return pathSeparator + strings.Join(parts[0:len(parts)-1], pathSeparator)
 }
 
 // index returns the index of the element `toFind`
@@ -178,6 +181,76 @@ func ensureRequestSchemaTitle(schemaName string, schemaRef *openapi3.SchemaRef) 
 	}
 }
 
+// ensureIdHierarchyInRequestPath ensures that the IDs in the path
+// segment following the rules:
+//
+// 1. parent resource id param should not be called `id`.
+//
+// 2. the sub-resource, if present, should use `id` if the path
+// variable represents an ID.
+func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) string {
+	segments := strings.Split(path, pathSeparator)
+	numSegments := len(segments)
+
+	pathParamTransformationsMap := make(map[string]string)
+
+	updatePathParamName := func(params openapi3.Parameters) {
+		for _, param := range params {
+			if param.Value.In != "path" {
+				continue
+			}
+
+			if transformedName, ok := pathParamTransformationsMap["{"+param.Value.Name+"}"]; ok {
+				param.Value.Name = transformedName
+			}
+		}
+	}
+
+	for i, segment := range segments {
+		if segment == "" || !strings.Contains(segment, "{") {
+			continue
+		}
+
+		var transformedParam string
+
+		// Satisfies rule #1.
+		if i != numSegments-1 && segment == "id" {
+			parentResource := segments[i-1]
+			transformedParam = segments[i-1]
+			if strings.Contains(parentResource, "_") {
+				transformedParam += "_id"
+			} else {
+				transformedParam += "Id"
+			}
+		} else if i == numSegments-1 && segment != "id" && strings.Contains(strings.ToLower(segment), "id") {
+			// Satisfies rule #2.
+			transformedParam = "id"
+		}
+
+		if transformedParam == "" {
+			continue
+		}
+
+		pathParamTransformationsMap[segments[i]] = transformedParam
+		segments[i] = "{" + transformedParam + "}"
+	}
+
+	switch {
+	case pathItem.Delete != nil && len(pathItem.Delete.Parameters) > 0:
+		updatePathParamName(pathItem.Delete.Parameters)
+	case pathItem.Get != nil && len(pathItem.Get.Parameters) > 0:
+		updatePathParamName(pathItem.Get.Parameters)
+	case pathItem.Patch != nil && len(pathItem.Patch.Parameters) > 0:
+		updatePathParamName(pathItem.Patch.Parameters)
+	case pathItem.Put != nil && len(pathItem.Put.Parameters) > 0:
+		updatePathParamName(pathItem.Put.Parameters)
+	case pathItem.Post != nil && len(pathItem.Post.Parameters) > 0:
+		updatePathParamName(pathItem.Post.Parameters)
+	}
+
+	return strings.Join(segments, pathSeparator)
+}
+
 // GatherResourcesFromAPI gathers resources from API endpoints.
 // The goal is to extract resources and map their corresponding CRUD
 // operations.
@@ -197,14 +270,14 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	for path, pathItem := range o.Doc.Paths {
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
-		currentPath := path
+		currentPath := ensureIdHierarchyInRequestPath(path, pathItem)
 		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
 
-		if index(o.ExcludedPaths, currentPath) > -1 {
+		if index(o.ExcludedPaths, path) > -1 {
 			continue
 		}
 
-		glog.V(3).Infof("Processing path %s\n", currentPath)
+		glog.V(3).Infof("Processing path %s as %s\n", path, currentPath)
 
 		if pathItem.Get != nil {
 			parentPath := getParentPath(currentPath)
@@ -236,6 +309,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
+						ensureRequestSchemaTitle(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
 						setReadOperationMapping(typeToken)
 
@@ -335,6 +409,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				for _, n := range schemaNames {
 					dResource := o.Doc.Components.Schemas[n]
+					ensureRequestSchemaTitle(n, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
 					setUpdateOperationMapping(typeToken)
 				}
@@ -375,6 +450,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				for _, ref := range resourceType.Discriminator.Mapping {
 					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 					dResource := o.Doc.Components.Schemas[schemaName]
+					ensureRequestSchemaTitle(schemaName, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
 					setPutOperationMapping(typeToken)
 				}
@@ -427,6 +503,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
+						ensureRequestSchemaTitle(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
 						setDeleteOperationMapping(typeToken)
 					}
