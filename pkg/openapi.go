@@ -160,6 +160,24 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	return resourceTitle
 }
 
+func ensureRequestSchemaTitle(schemaName string, schemaRef *openapi3.SchemaRef) {
+	if schemaRef.Value.Title != "" {
+		return
+	}
+
+	if strings.Contains(schemaName, "_") {
+		schemaRef.Value.Title = ToPascalCase(schemaName)
+	} else {
+		parts := strings.Split(schemaName, "_")
+		result := parts[0]
+		for _, p := range parts[1:] {
+			result += ToPascalCase(p)
+		}
+
+		schemaRef.Value.Title = result
+	}
+}
+
 // GatherResourcesFromAPI gathers resources from API endpoints.
 // The goal is to extract resources and map their corresponding CRUD
 // operations.
@@ -602,6 +620,7 @@ func (o *OpenAPIContext) gatherResource(
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
+			ensureRequestSchemaTitle(schemaName, typeSchema)
 			resourceTypeToken, err = o.gatherResourceProperties(*typeSchema.Value, resourceResponseType, apiPath, module)
 		}
 	} else {
