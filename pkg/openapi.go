@@ -1205,7 +1205,11 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 			Description: value.Value.Description,
 			TypeSpec:    *typeSpec,
 		}
-		if value.Value.Default != nil {
+
+		// Don't set default values for array-type properties
+		// since Pulumi doesn't support it and also it isn't
+		// very helpful anyway for arrays.
+		if value.Value.Default != nil && value.Value.Type != arrayType {
 			propertySpec.Default = value.Value.Default
 		}
 
