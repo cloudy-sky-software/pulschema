@@ -126,14 +126,16 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	var replaceKeywords []string
 
 	switch method {
+	case http.MethodDelete:
+		replaceKeywords = append(replaceKeywords, "delete")
 	case http.MethodGet:
 		replaceKeywords = append(replaceKeywords, "get", "list")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "update")
-	case http.MethodPost, http.MethodPut:
+	case http.MethodPost:
 		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
-	case http.MethodDelete:
-		replaceKeywords = append(replaceKeywords, "delete")
+	case http.MethodPut:
+		replaceKeywords = append(replaceKeywords, "update", "create", "set", "put")
 	}
 
 	result := originalOperationID
@@ -194,7 +196,7 @@ func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 
 	pathParamTransformationsMap := make(map[string]string)
 
-	updatePathParamName := func(params openapi3.Parameters) {
+	updatePathParamNames := func(params openapi3.Parameters) {
 		for _, param := range params {
 			if param.Value.In != "path" {
 				continue
@@ -216,7 +218,7 @@ func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 		// Satisfies rule #1.
 		if i != numSegments-1 && segment == "id" {
 			parentResource := segments[i-1]
-			transformedParam = segments[i-1]
+			transformedParam = parentResource
 			if strings.Contains(parentResource, "_") {
 				transformedParam += "_id"
 			} else {
@@ -235,17 +237,20 @@ func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 		segments[i] = "{" + transformedParam + "}"
 	}
 
-	switch {
-	case pathItem.Delete != nil && len(pathItem.Delete.Parameters) > 0:
-		updatePathParamName(pathItem.Delete.Parameters)
-	case pathItem.Get != nil && len(pathItem.Get.Parameters) > 0:
-		updatePathParamName(pathItem.Get.Parameters)
-	case pathItem.Patch != nil && len(pathItem.Patch.Parameters) > 0:
-		updatePathParamName(pathItem.Patch.Parameters)
-	case pathItem.Put != nil && len(pathItem.Put.Parameters) > 0:
-		updatePathParamName(pathItem.Put.Parameters)
-	case pathItem.Post != nil && len(pathItem.Post.Parameters) > 0:
-		updatePathParamName(pathItem.Post.Parameters)
+	if pathItem.Delete != nil && len(pathItem.Delete.Parameters) > 0 {
+		updatePathParamNames(pathItem.Delete.Parameters)
+	}
+	if pathItem.Get != nil && len(pathItem.Get.Parameters) > 0 {
+		updatePathParamNames(pathItem.Get.Parameters)
+	}
+	if pathItem.Patch != nil && len(pathItem.Patch.Parameters) > 0 {
+		updatePathParamNames(pathItem.Patch.Parameters)
+	}
+	if pathItem.Put != nil && len(pathItem.Put.Parameters) > 0 {
+		updatePathParamNames(pathItem.Put.Parameters)
+	}
+	if pathItem.Post != nil && len(pathItem.Post.Parameters) > 0 {
+		updatePathParamNames(pathItem.Post.Parameters)
 	}
 
 	return strings.Join(segments, pathSeparator)
@@ -263,7 +268,7 @@ func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 //     for resource updates. The Patch request schema is used to determine
 //     which properties can be patched when changes are detected in Diff() vs.
 //     which ones will force a resource replacement.
-func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, error) {
+func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, openapi3.T, error) {
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
 
@@ -349,7 +354,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
 				if err != nil {
-					return nil, errors.Wrap(err, "generating list function")
+					return nil, o.Doc, errors.Wrap(err, "generating list function")
 				}
 
 				o.Pkg.Functions[funcTypeToken] = *funcSpec
@@ -381,7 +386,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
-				return nil, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+				return nil, o.Doc, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
@@ -443,7 +448,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
 			}
 			if resourceType.Title == "" {
-				return nil, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+				return nil, o.Doc, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 			}
 
 			if resourceType.Discriminator != nil {
@@ -464,7 +469,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if !strings.HasSuffix(currentPath, "}") {
 				if err := o.gatherResource(currentPath, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
-					return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
+					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
 
 				csharpNamespaces[module] = ToPascalCase(module)
@@ -496,7 +501,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					resourceType.Title = getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				}
 				if resourceType.Title == "" {
-					return nil, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+					return nil, o.Doc, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 				}
 
 				if resourceType.Discriminator != nil {
@@ -514,7 +519,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			} else {
 				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 				if resourceTypeTitle == "" {
-					return nil, errors.New("request body schema must have a title or the operation must have an operationid")
+					return nil, o.Doc, errors.New("request body schema must have a title or the operation must have an operationid")
 				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceTypeTitle)
 				setDeleteOperationMapping(typeToken)
@@ -527,7 +532,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
 		if jsonReq.Schema.Value == nil {
-			return nil, errors.Errorf("path %s has no api schema definition for post method", currentPath)
+			return nil, o.Doc, errors.Errorf("path %s has no api schema definition for post method", currentPath)
 		}
 
 		resourceRequestType := jsonReq.Schema.Value
@@ -562,11 +567,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if resourceRequestType.Title == "" {
-			return nil, errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
+			return nil, o.Doc, errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
 		}
 
 		if err := o.gatherResource(currentPath, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
-			return nil, errors.Wrapf(err, "generating resource for api path %s", currentPath)
+			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
 
 		csharpNamespaces[module] = ToPascalCase(module)
@@ -575,7 +580,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	return &ProviderMetadata{
 		ResourceCRUDMap: o.resourceCRUDMap,
 		AutoNameMap:     o.autoNameMap,
-	}, nil
+	}, o.Doc, nil
 }
 
 // genListFunc returns a function spec for a GET API endpoint that returns a list of objects.

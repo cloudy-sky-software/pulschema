@@ -1,0 +1,279 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    link_to_last_page:
+      type: object
+      properties:
+        last:
+          description: URI of the last page of the results.
+          type: string
+          example: https://api.digitalocean.com/v2/images?page=2
+    link_to_next_page:
+      type: object
+      properties:
+        next:
+          description: URI of the next page of the results.
+          type: string
+          example: https://api.digitalocean.com/v2/images?page=2
+    forward_links:
+      allOf:
+        - $ref: "#/components/schemas/link_to_last_page"
+        - $ref: "#/components/schemas/link_to_next_page"
+    link_to_first_page:
+      type: object
+      properties:
+        first:
+          description: URI of the first page of the results.
+          type: string
+          example: https://api.digitalocean.com/v2/images?page=1
+    link_to_prev_page:
+      type: object
+      properties:
+        prev:
+          description: URI of the previous page of the results.
+          type: string
+          example: https://api.digitalocean.com/v2/images?page=1
+    backward_links:
+      allOf:
+        - $ref: "#/components/schemas/link_to_first_page"
+        - $ref: "#/components/schemas/link_to_prev_page"
+    page_links:
+      type: object
+      properties:
+        pages:
+          anyOf:
+            - $ref: "#/components/schemas/forward_links"
+            - $ref: "#/components/schemas/backward_links"
+            - {}
+          example:
+            pages:
+              first: https://api.digitalocean.com/v2/account/keys?page=1
+              prev: https://api.digitalocean.com/v2/account/keys?page=2
+    pagination:
+      type: object
+      properties:
+        links:
+          $ref: "#/components/schemas/page_links"
+    meta_properties:
+      type: object
+      description: Information about the response itself.
+      properties:
+        total:
+          description: Number of objects returned by the request.
+          type: integer
+          example: 1
+    meta:
+      type: object
+      properties:
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/meta_properties"
+            - required:
+                - total
+      required:
+        - meta
+    alert_base:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          example: 5a4981aa-9653-4bd1-bef5-d6bff52042e4
+          description: A unique ID that can be used to identify and reference the alert.
+    notification:
+      type: object
+      description: The notification settings for a trigger alert.
+      required:
+        - slack
+        - email
+      properties:
+        email:
+          description: An email to notify on an alert trigger.
+          example:
+            - bob@example.com
+          type: array
+          items:
+            type: string
+        slack:
+          type: array
+          description: Slack integration details.
+          items:
+            type: object
+            required:
+              - url
+              - channel
+            properties:
+              channel:
+                type: string
+                format: string
+                example: Production Alerts
+                description: Slack channel to notify of an alert trigger.
+              url:
+                type: string
+                format: string
+                description: Slack Webhook URL.
+                example: https://hooks.slack.com/services/T1234567/AAAAAAAA/ZZZZZZ
+    alert_updatable:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Landing page degraded performance
+          description: A human-friendly display name.
+        type:
+          type: string
+          example: latency
+          enum:
+            - latency
+            - down
+            - down_global
+            - ssl_expiry
+          description: The type of alert.
+        threshold:
+          type: integer
+          example: 300
+          description: >-
+            The threshold at which the alert will enter a trigger state. The
+            specific threshold is dependent on the alert type.
+        comparison:
+          type: string
+          example: greater_than
+          description: The comparison operator used against the alert's threshold.
+          enum:
+            - greater_than
+            - less_than
+        notifications:
+          $ref: "#/components/schemas/notification"
+        period:
+          type: string
+          example: 2m
+          description: Period of time the threshold must be exceeded to trigger the alert.
+          enum:
+            - 2m
+            - 3m
+            - 5m
+            - 10m
+            - 15m
+            - 30m
+            - 1h
+    alert:
+      type: object
+      allOf:
+        - $ref: "#/components/schemas/alert_base"
+        - $ref: "#/components/schemas/alert_updatable"
+
+  responses:
+    no_content:
+      description: The action was successful and the response body is empty.
+
+    existing_alert:
+      description: >-
+        The response will be a JSON object with a key called `alert`. The value
+        of this will be an object that contains the standard attributes
+        associated with an uptime alert.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              alert:
+                $ref: "#/components/schemas/alert"
+
+paths:
+  /v2/uptime/checks/{check_id}/alerts/{alert_id}:
+    get:
+      operationId: uptime_get_alert
+      summary: Retrieve an Existing Alert
+      description: >-
+        To show information about an existing alert, send a GET request to
+        `/v2/uptime/checks/$CHECK_ID/alerts/$ALERT_ID`.
+      tags:
+        - Uptime
+      parameters:
+        - name: check_id
+          in: path
+          description: A unique identifier for a check.
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: alert_id
+          in: path
+          description: A unique identifier for an alert.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          $ref: "#/components/responses/existing_alert"
+    put:
+      operationId: uptime_update_alert
+      summary: Update an Alert
+      description: >
+        To update the settings of an Uptime alert, send a PUT request to
+        `/v2/uptime/checks/$CHECK_ID/alerts/$ALERT_ID`.
+      tags:
+        - Uptime
+      parameters:
+        - name: check_id
+          in: path
+          description: A unique identifier for a check.
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: alert_id
+          in: path
+          description: A unique identifier for an alert.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              allOf:
+                - $ref: "#/components/schemas/alert_updatable"
+      responses:
+        "200":
+          $ref: "#/components/responses/existing_alert"
+    delete:
+      operationId: uptime_delete_alert
+      summary: Delete an Alert
+      description: >
+        To delete an Uptime alert, send a DELETE request to
+        `/v2/uptime/checks/$CHECK_ID/alerts/$ALERT_ID`. A 204 status
+
+        code with no body will be returned in response to a successful request.
+      tags:
+        - Uptime
+      parameters:
+        - name: check_id
+          in: path
+          description: A unique identifier for a check.
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: alert_id
+          in: path
+          description: A unique identifier for an alert.
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          $ref: "#/components/responses/no_content"
