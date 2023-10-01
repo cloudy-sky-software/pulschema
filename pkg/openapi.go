@@ -183,14 +183,14 @@ func ensureRequestSchemaTitle(schemaName string, schemaRef *openapi3.SchemaRef) 
 	}
 }
 
-// ensureIdHierarchyInRequestPath ensures that the IDs in the path
+// ensureIDHierarchyInRequestPath ensures that the IDs in the path
 // segment following the rules:
 //
 // 1. parent resource id param should not be called `id`.
 //
 // 2. the sub-resource, if present, should use `id` if the path
 // variable represents an ID.
-func ensureIdHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) string {
+func ensureIDHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) string {
 	segments := strings.Split(path, pathSeparator)
 	numSegments := len(segments)
 
@@ -275,7 +275,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	for path, pathItem := range o.Doc.Paths {
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
-		currentPath := ensureIdHierarchyInRequestPath(path, pathItem)
+		currentPath := ensureIDHierarchyInRequestPath(path, pathItem)
 		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
 
 		if index(o.ExcludedPaths, path) > -1 {
@@ -1355,15 +1355,17 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 		for _, val := range other.Enum {
 			same = same && names.Has(val.Name)
 		}
+
 		if !same {
 			msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
 			return nil, &duplicateEnumError{msg: msg}
-		} else {
-			return &pschema.TypeSpec{
-				Ref: referencedTypeName,
-			}, nil
 		}
+
+		return &pschema.TypeSpec{
+			Ref: referencedTypeName,
+		}, nil
 	}
+
 	ctx.pkg.Types[tok] = *enumSpec
 
 	return &pschema.TypeSpec{
