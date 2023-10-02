@@ -24,7 +24,6 @@ import (
 const (
 	componentsSchemaRefPrefix = "#/components/schemas/"
 	jsonMimeType              = "application/json"
-	arrayType                 = "array"
 	parameterLocationPath     = "path"
 	pathSeparator             = "/"
 )
@@ -198,7 +197,7 @@ func ensureIDHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 
 	updatePathParamNames := func(params openapi3.Parameters) {
 		for _, param := range params {
-			if param.Value.In != "path" {
+			if param.Value.In != parameterLocationPath {
 				continue
 			}
 
@@ -307,7 +306,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
 			// or a list of resources.
-			if resourceType.Type != arrayType && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+			if resourceType.Type != openapi3.TypeArray && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				// If there is a discriminator then we should set this operation
 				// as the read endpoint for each of the types in the mapping.
 				if resourceType.Discriminator != nil {
@@ -325,14 +324,20 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						setReadOperationMapping(funcTypeToken)
 					}
 				} else {
+					// TODO: This causes problems when two functions use the same response type schema.
 					if resourceType.Title == "" {
-						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+						if jsonReq.Schema.Ref == "" {
+							resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+						} else {
+							schemaName := strings.TrimPrefix(jsonReq.Schema.Ref, componentsSchemaRefPrefix)
+							ensureRequestSchemaTitle(schemaName, jsonReq.Schema)
+						}
 					}
 
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
 					setReadOperationMapping(typeToken)
 
-					funcName := "get" + resourceType.Title
+					funcName := "get" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 					funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 					getterFuncSpec := o.genGetFunc(*pathItem, *jsonReq.Schema, module, funcName)
 					o.Pkg.Functions[funcTypeToken] = getterFuncSpec
@@ -341,7 +346,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			// Add the API operation as a list* function.
-			if resourceType.Type == arrayType || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+			if resourceType.Type == openapi3.TypeArray || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				var funcName string
 				if resourceType.Title != "" {
 					resourceType.Title = strings.ReplaceAll(resourceType.Title, "List", "")
@@ -1016,7 +1021,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
-	if propSchema.Ref != "" && propSchema.Value.Type != arrayType && len(propSchema.Value.Enum) == 0 {
+	if propSchema.Ref != "" && propSchema.Value.Type != openapi3.TypeArray && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
@@ -1154,7 +1159,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			return nil, err
 		}
 		return &pschema.TypeSpec{
-			Type:  arrayType,
+			Type:  openapi3.TypeArray,
 			Items: elementType,
 		}, nil
 	}
@@ -1214,7 +1219,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// Don't set default values for array-type properties
 		// since Pulumi doesn't support it and also it isn't
 		// very helpful anyway for arrays.
-		if value.Value.Default != nil && value.Value.Type != arrayType {
+		if value.Value.Default != nil && value.Value.Type != openapi3.TypeArray {
 			propertySpec.Default = value.Value.Default
 		}
 
