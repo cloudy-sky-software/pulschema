@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGatherResources(t *testing.T) {
+func TestBug103(t *testing.T) {
 	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "bug_103_openapi.yml"))
 
 	openAPICtx := &OpenAPIContext{
