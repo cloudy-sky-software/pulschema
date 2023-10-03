@@ -8,6 +8,24 @@ servers:
 
 components:
   schemas:
+    meta_properties:
+      type: object
+      description: Information about the response itself.
+      properties:
+        total:
+          description: Number of objects returned by the request.
+          type: integer
+          example: 1
+    meta:
+      type: object
+      properties:
+        meta:
+          allOf:
+            - $ref: "#/components/schemas/meta_properties"
+            - required:
+                - total
+      required:
+        - meta
     apps_get_logs_response:
       properties:
         historic_urls:
@@ -24,6 +42,47 @@ components:
           type: string
           example: ws://logs/build
       type: object
+    urn:
+      type: string
+      pattern: >-
+        ^do:(dbaas|domain|droplet|floatingip|loadbalancer|space|volume|kubernetes|vpc):.*
+      example: do:droplet:13457723
+      description: >-
+        The uniform resource name (URN) for the resource in the format
+        do:resource_type:resource_id.
+    resource:
+      type: object
+      properties:
+        urn:
+          $ref: "#/components/schemas/urn"
+        assigned_at:
+          type: string
+          format: date-time
+          example: "2018-09-28T19:26:37Z"
+          description: >-
+            A time value given in ISO8601 combined date and time format that
+            represents when the project was created.
+        links:
+          type: object
+          description: >-
+            The links object contains the `self` object, which contains the
+            resource relationship.
+          properties:
+            self:
+              type: string
+              format: uri
+              example: https://api.digitalocean.com/v2/droplets/13457723
+              description: A URI that can be used to retrieve the resource.
+        status:
+          type: string
+          enum:
+            - ok
+            - not_found
+            - assigned
+            - already_assigned
+            - service_down
+          example: ok
+          description: The status of assigning and fetching the resources.
 
   parameters:
     app_id:
@@ -67,6 +126,37 @@ components:
           - RUN
         type: string
       example: BUILD
+    project_id:
+      in: path
+      name: project_id
+      description: A unique identifier for a project.
+      required: true
+      schema:
+        type: string
+        format: uuid
+        minimum: 1
+      example: 4de7ac8b-495b-4884-9a69-1050c6793cd6
+    per_page:
+      in: query
+      name: per_page
+      required: false
+      description: Number of items returned per page
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+        maximum: 200
+      example: 2
+    page:
+      in: query
+      name: page
+      required: false
+      description: Which 'page' of paginated results to return.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
     time_wait:
       description: >-
         An optional time duration to wait if the underlying component instance
@@ -84,6 +174,21 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/apps_get_logs_response"
+    resources_list:
+      description: >-
+        The response will be a JSON object with a key called `resources`. The
+        value of this will be an object with the standard resource attributes.
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/resource"
+              - $ref: "#/components/schemas/meta"
 
 paths:
   /v2/apps/{app_id}/deployments/{deployment_id}/logs:
@@ -129,3 +234,33 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/list_logs"
+
+  /v2/projects/default/resources:
+    get:
+      operationId: projects_list_resources_default
+      summary: List Default Project Resources
+      description: >-
+        To list all your resources in your default project, send a GET request
+        to `/v2/projects/default/resources`.
+      tags:
+        - Project Resources
+      responses:
+        "200":
+          $ref: "#/components/responses/resources_list"
+
+  /v2/projects/{project_id}/resources:
+    get:
+      operationId: projects_list_resources
+      summary: List Project Resources
+      description: >-
+        To list all your resources in a project, send a GET request to
+        `/v2/projects/$PROJECT_ID/resources`.
+      tags:
+        - Project Resources
+      parameters:
+        - $ref: "#/components/parameters/project_id"
+        - $ref: "#/components/parameters/per_page"
+        - $ref: "#/components/parameters/page"
+      responses:
+        "200":
+          $ref: "#/components/responses/resources_list"
