@@ -130,7 +130,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodGet:
 		replaceKeywords = append(replaceKeywords, "get", "list")
 	case http.MethodPatch:
-		replaceKeywords = append(replaceKeywords, "update")
+		replaceKeywords = append(replaceKeywords, "update", "patch")
 	case http.MethodPost:
 		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
 	case http.MethodPut:
@@ -330,10 +330,14 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 
+					// The resource needs to be read from the cloud provider API,
+					// so we should map this "read" endpoint for this resource.
+					// This is in addition to separately adding the "get" function
+					// too.
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setReadOperationMapping(typeToken)
 
-					funcName := "get" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+					funcName := "get" + resourceName
 					funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 					getterFuncSpec := o.genGetFunc(*pathItem, *jsonReq.Schema, module, funcName)
 					o.Pkg.Functions[funcTypeToken] = getterFuncSpec
@@ -345,7 +349,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			if resourceType.Type == openapi3.TypeArray || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
+				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, module, funcName)
 				if err != nil {
 					return nil, o.Doc, errors.Wrap(err, "generating list function")
 				}
@@ -557,7 +561,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // The item type can have a discriminator in the schema. This method will return a type
 // that will refer to an output type that uses the discriminator properties to correctly
 // type the output result.
-func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) (*pschema.FunctionSpec, error) {
+func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, module, funcName string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
 	funcPkgCtx := &resourceContext{
 		mod:               module,
@@ -662,47 +666,56 @@ func (o *OpenAPIContext) gatherResource(
 	resourceResponseType *openapi3.Schema,
 	pathParams openapi3.Parameters,
 	module string) error {
-	var resourceTypeToken *string
-	var err error
+
+	addRequiredPathParams := func(typeToken string) {
+		resourceSpec := o.Pkg.Resources[typeToken]
+
+		// If this endpoint path has path parameters,
+		// then those should be required inputs too.
+		for _, param := range pathParams {
+			if param.Value.In != parameterLocationPath {
+				continue
+			}
+
+			paramName := param.Value.Name
+			resourceSpec.InputProperties[paramName] = pschema.PropertySpec{
+				Description: param.Value.Description,
+				TypeSpec:    pschema.TypeSpec{Type: "string"},
+			}
+		}
+
+		o.Pkg.Resources[typeToken] = resourceSpec
+	}
 
 	if resourceRequestType.Discriminator != nil {
-		for _, mappingRef := range resourceRequestType.Discriminator.Mapping {
+		for discriminatedValue, mappingRef := range resourceRequestType.Discriminator.Mapping {
 			schemaName := strings.TrimPrefix(mappingRef, componentsSchemaRefPrefix)
 			typeSchema, ok := o.Doc.Components.Schemas[schemaName]
 			if !ok {
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			discriminatedResourceName := getResourceTitleFromRequestSchema(schemaName, typeSchema)
-			resourceTypeToken, err = o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
+			// discriminatedResourceName := getResourceTitleFromRequestSchema(schemaName, typeSchema)
+			discriminatedResourceName := resourceName + ToPascalCase(discriminatedValue)
+			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
+
+			if err != nil {
+				return errors.Wrapf(err, "gathering resource from api path %s", apiPath)
+			}
+
+			addRequiredPathParams(*resourceTypeToken)
 		}
-	} else {
-		resourceTypeToken, err = o.gatherResourceProperties(resourceName, resourceRequestType, resourceResponseType, apiPath, module)
+
+		return nil
 	}
+
+	resourceTypeToken, err := o.gatherResourceProperties(resourceName, resourceRequestType, resourceResponseType, apiPath, module)
 
 	if err != nil {
 		return errors.Wrapf(err, "gathering resource from api path %s", apiPath)
 	}
 
-	resourceSpec := o.Pkg.Resources[*resourceTypeToken]
-	requiredInputs := codegen.NewStringSet(resourceSpec.RequiredInputs...)
-
-	// If this endpoint path has path parameters,
-	// then those should be required inputs too.
-	for _, param := range pathParams {
-		if param.Value.In != parameterLocationPath {
-			continue
-		}
-
-		paramName := param.Value.Name
-		resourceSpec.InputProperties[paramName] = pschema.PropertySpec{
-			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: "string"},
-		}
-		requiredInputs.Add(paramName)
-	}
-
-	o.Pkg.Resources[*resourceTypeToken] = resourceSpec
+	addRequiredPathParams(*resourceTypeToken)
 
 	return nil
 }
@@ -876,7 +889,6 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		// Now that all of the types have been added to schema's Types,
 		// gather all of their properties and smash them together into
 		// a new type and get rid of those top-level ones.
-		typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentName)
 		for _, t := range types {
 			refTypeTok := strings.TrimPrefix(t.Ref, "#/types/")
 			refType := pkgCtx.pkg.Types[refTypeTok]
@@ -896,27 +908,6 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			pkgCtx.visitedTypes.Delete(refTypeTok)
 			delete(pkgCtx.pkg.Types, refTypeTok)
 		}
-
-		if existing, ok := o.resourceCRUDMap[typeToken]; ok {
-			existing.C = &apiPath
-		} else {
-			o.resourceCRUDMap[typeToken] = &CRUDOperationsMap{
-				C: &apiPath,
-			}
-		}
-
-		o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
-			ObjectTypeSpec: pschema.ObjectTypeSpec{
-				Description: requestBodySchema.Description,
-				Type:        "object",
-				Properties:  properties,
-				Required:    requiredOutputs.SortedValues(),
-			},
-			InputProperties: inputProperties,
-			RequiredInputs:  requiredInputs.SortedValues(),
-		}
-
-		return &typeToken, nil
 	}
 
 	if existing, ok := o.resourceCRUDMap[typeToken]; ok {
@@ -941,9 +932,9 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	return &typeToken, nil
 }
 
-// genPropertySpec returns a property spec from an schema ref.
-// The type spec of the returned property spec can be any of the
-// supported types in Pulumi, including ref's to other types
+// genPropertySpec returns a property spec from a schema ref.
+// The type spec of the returned property spec can be any of
+// the supported types in Pulumi, including ref's to other types
 // within the schema. In the case of ref's to other types, those
 // other types are automatically added to the Pulumi schema spec's
 // `Types` property.
