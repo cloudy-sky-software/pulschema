@@ -30,4 +30,12 @@ func TestGatherResources(t *testing.T) {
 	// apps_get_logs_aggregate
 	_, ok = testPulumiPkg.Functions[packageName+":apps/v2:getAppsLogsAggregate"]
 	assert.True(t, ok, "Expected to find function getAppsLogsAggregate in the Pulumi package spec")
+
+	// projects_list_resources
+	_, ok = testPulumiPkg.Functions[packageName+":projects/v2:listProjectsResources"]
+	assert.True(t, ok, "Expected to find function listProjectsResources in the Pulumi package spec")
+
+	// projects_list_resources_default
+	_, ok = testPulumiPkg.Functions[packageName+":projects/v2:listProjectsResourcesDefault"]
+	assert.True(t, ok, "Expected to find function listProjectsResourcesDefault in the Pulumi package spec")
 }
