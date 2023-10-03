@@ -10,7 +10,7 @@ import (
 // Test to ensure resources with discriminated request body types
 // are generated with unique resource names if there is a collision.
 func TestBug104(t *testing.T) {
-	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "bug_104_openapi.yml"))
+	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "bug_105_openapi.yml"))
 
 	openAPICtx := &OpenAPIContext{
 		Doc: *testOpenAPIDoc,
