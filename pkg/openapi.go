@@ -126,15 +126,15 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 
 	switch method {
 	case http.MethodDelete:
-		replaceKeywords = append(replaceKeywords, "delete", "destroy")
+		replaceKeywords = append(replaceKeywords, "delete", "destroy", "remove")
 	case http.MethodGet:
 		replaceKeywords = append(replaceKeywords, "get", "list")
 	case http.MethodPatch:
-		replaceKeywords = append(replaceKeywords, "update", "patch")
+		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
-		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
+		replaceKeywords = append(replaceKeywords, "add", "create", "post", "put", "set")
 	case http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "update", "create", "set", "put")
+		replaceKeywords = append(replaceKeywords, "add", "create", "put", "set", "update")
 	}
 
 	result := originalOperationID
@@ -695,7 +695,6 @@ func (o *OpenAPIContext) gatherResource(
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			// discriminatedResourceName := getResourceTitleFromRequestSchema(schemaName, typeSchema)
 			discriminatedResourceName := resourceName + ToPascalCase(discriminatedValue)
 			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
 
@@ -988,9 +987,21 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			return nil, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
 		}
 
+		// Properties can refer to reusable schema types
+		// which are actually just simple types.
+		if typeSchema.Value.Type != openapi3.TypeObject &&
+			len(typeSchema.Value.Properties) == 0 &&
+			len(typeSchema.Value.AllOf) == 0 {
+			return &pschema.TypeSpec{
+				Type: typeSchema.Value.Type,
+			}, nil
+		}
+
 		if !ctx.visitedTypes.Has(tok) {
 			ctx.visitedTypes.Add(tok)
+
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
+
 			if err != nil {
 				return nil, errors.Wrapf(err, "generating properties for %s", typName)
 			}
@@ -1113,7 +1124,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	case openapi3.TypeArray:
 		elementType, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
 		}
 		return &pschema.TypeSpec{
 			Type:  openapi3.TypeArray,
