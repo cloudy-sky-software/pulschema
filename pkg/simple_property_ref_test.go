@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestSimplePropertyRef tests if schema references to
+// simple property types are inlined instead of creating
+// a schema type.
 func TestSimplePropertyRef(t *testing.T) {
 	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "simple_property_ref.yml"))
 
