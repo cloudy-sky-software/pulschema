@@ -707,7 +707,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		var types []pschema.TypeSpec
 		newlyAddedTypes := codegen.NewStringSet()
 		for _, schemaRef := range requestBodySchema.AllOf {
-			if schemaRef == nil || schemaRef.Value == nil || schemaRef.Value.Type != "object" {
+			if schemaRef == nil || (schemaRef.Value.Type != "object" && len(schemaRef.Value.AllOf) == 0) {
 				continue
 			}
 
