@@ -68,7 +68,8 @@ type OpenAPIContext struct {
 	resourceCRUDMap map[string]*CRUDOperationsMap
 	// autoNameMap is a map of the resource type token
 	// and the property that can be auto-named.
-	autoNameMap map[string]string
+	autoNameMap  map[string]string
+	visitedTypes codegen.StringSet
 }
 
 type duplicateEnumError struct {
@@ -94,6 +95,7 @@ func (d *duplicateEnumError) Error() string {
 func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, openapi3.T, error) {
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
+	o.visitedTypes = codegen.NewStringSet()
 
 	for path, pathItem := range o.Doc.Paths {
 		// Capture the iteration variable `path` because we use its pointer
@@ -397,7 +399,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		mod:               module,
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -415,7 +417,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
 	if err != nil {
 		return nil, errors.Wrap(err, "generating property type spec for response schema")
 	}
@@ -447,7 +449,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		mod:               module,
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -465,7 +467,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		requiredInputs.Add(paramName)
 	}
 
-	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
 	if err != nil {
 		panic(err)
 	}
@@ -557,7 +559,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		pkg:               o.Pkg,
 		resourceName:      resourceName,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
 	}
 
 	inputProperties := make(map[string]pschema.PropertySpec)
@@ -577,7 +579,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				// properties schema or have a type ref. Either way,
 				// the `propertyTypeSpec` method will take care of it.
 				for _, v := range prop.Value.Properties {
-					typeSpec, err := pkgCtx.propertyTypeSpec(propName, *v)
+					typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
 					if err != nil {
 						return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
 					}
@@ -623,7 +625,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 					// properties schema or have a type ref. Either way,
 					// the `propertyTypeSpec` method will take care of it.
 					for _, v := range prop.Value.Properties {
-						typeSpec, err := pkgCtx.propertyTypeSpec(propName, *v)
+						typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
 						if err != nil {
 							return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
 						}
@@ -703,14 +705,18 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	if len(requestBodySchema.AllOf) > 0 {
 		parentName := ToPascalCase(resourceName)
 		var types []pschema.TypeSpec
+		newlyAddedTypes := codegen.NewStringSet()
 		for _, schemaRef := range requestBodySchema.AllOf {
 			if schemaRef == nil || schemaRef.Value == nil || schemaRef.Value.Type != "object" {
 				continue
 			}
 
-			typ, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
+			typ, newlyAddedType, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
 				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", resourceName)
+			}
+			if newlyAddedType {
+				newlyAddedTypes.Add(typ.Ref)
 			}
 			types = append(types, *typ)
 		}
@@ -734,8 +740,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				requiredInputs.Add(r)
 			}
 
-			pkgCtx.visitedTypes.Delete(refTypeTok)
-			delete(pkgCtx.pkg.Types, refTypeTok)
+			if newlyAddedTypes.Has(t.Ref) {
+				pkgCtx.visitedTypes.Delete(refTypeTok)
+				delete(pkgCtx.pkg.Types, refTypeTok)
+			}
 		}
 	}
 
@@ -793,7 +801,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		}
 	}
 
-	typeSpec, err := ctx.propertyTypeSpec(propName, p)
+	typeSpec, _, err := ctx.propertyTypeSpec(propName, p)
 	if err != nil {
 		contract.Failf("Failed to generate type spec (resource: %s, prop %s): %v", ctx.resourceName, propName, err)
 	}
@@ -803,8 +811,10 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	return propertySpec
 }
 
-// propertyTypeSpec converts an API schema to a Pulumi property type spec.
-func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, error) {
+// propertyTypeSpec returns a Pulumi property type spec and
+// a flag that indicates if the type ref was previously
+// encountered.
+func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, bool, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
 	if propSchema.Ref != "" && propSchema.Value.Type != openapi3.TypeArray && len(propSchema.Value.Enum) == 0 {
@@ -814,9 +824,11 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
 		if !ok {
-			return nil, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
+			return nil, false, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
 		}
 
+		// If the ref is for a simple property type, just
+		// return a TypeSpec for that type.
 		// Properties can refer to reusable schema types
 		// which are actually just simple types.
 		if typeSchema.Value.Type != openapi3.TypeObject &&
@@ -824,8 +836,10 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			len(typeSchema.Value.AllOf) == 0 {
 			return &pschema.TypeSpec{
 				Type: typeSchema.Value.Type,
-			}, nil
+			}, false, nil
 		}
+
+		newType := !ctx.visitedTypes.Has(tok)
 
 		if !ctx.visitedTypes.Has(tok) {
 			ctx.visitedTypes.Add(tok)
@@ -833,7 +847,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
 
 			if err != nil {
-				return nil, errors.Wrapf(err, "generating properties for %s", typName)
+				return nil, false, errors.Wrapf(err, "generating properties for %s", typName)
 			}
 
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
@@ -847,7 +861,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}
 
 		referencedTypeName := fmt.Sprintf("#/types/%s", tok)
-		return &pschema.TypeSpec{Ref: referencedTypeName}, nil
+		return &pschema.TypeSpec{Ref: referencedTypeName}, newType, nil
 	}
 
 	// Inline properties.
@@ -856,7 +870,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 		specs, requiredSpecs, err := ctx.genProperties(typName, *propSchema.Value)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
@@ -868,16 +882,16 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			},
 		}
 		referencedTypeName := fmt.Sprintf("#/types/%s", tok)
-		return &pschema.TypeSpec{Ref: referencedTypeName}, nil
+		return &pschema.TypeSpec{Ref: referencedTypeName}, true, nil
 	}
 
 	// Union types.
 	if len(propSchema.Value.OneOf) > 0 {
 		var types []pschema.TypeSpec
 		for _, schemaRef := range propSchema.Value.OneOf {
-			typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
+			typ, _, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			types = append(types, *typ)
 		}
@@ -905,13 +919,13 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		return &pschema.TypeSpec{
 			OneOf:         types,
 			Discriminator: discriminator,
-		}, nil
+		}, true, nil
 	}
 
 	if len(propSchema.Value.AllOf) > 0 {
 		properties, requiredPropSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
 		if err != nil {
-			return nil, errors.Wrap(err, "generating properties from allOf schema definition")
+			return nil, false, errors.Wrap(err, "generating properties from allOf schema definition")
 		}
 
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, ToPascalCase(parentName))
@@ -926,43 +940,44 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 		return &pschema.TypeSpec{
 			Ref: fmt.Sprintf("#/types/%s", tok),
-		}, nil
+		}, true, nil
 	}
 
 	if len(propSchema.Value.Enum) > 0 {
 		enum, err := ctx.genEnumType(parentName, *propSchema.Value)
 		if err != nil {
-			return nil, errors.Wrapf(err, "generating enum for %s", parentName)
+			return nil, false, errors.Wrapf(err, "generating enum for %s", parentName)
 		}
+
 		if enum != nil {
-			return enum, nil
+			return enum, true, nil
 		}
 	}
 
 	// All other types.
 	switch propSchema.Value.Type {
 	case openapi3.TypeInteger:
-		return &pschema.TypeSpec{Type: "integer"}, nil
+		return &pschema.TypeSpec{Type: "integer"}, false, nil
 	case openapi3.TypeString:
-		return &pschema.TypeSpec{Type: "string"}, nil
+		return &pschema.TypeSpec{Type: "string"}, false, nil
 	case openapi3.TypeBoolean:
-		return &pschema.TypeSpec{Type: "boolean"}, nil
+		return &pschema.TypeSpec{Type: "boolean"}, false, nil
 	case openapi3.TypeNumber:
-		return &pschema.TypeSpec{Type: "number"}, nil
+		return &pschema.TypeSpec{Type: "number"}, false, nil
 	case openapi3.TypeObject:
-		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, nil
+		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
 	case openapi3.TypeArray:
-		elementType, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
+		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
-			return nil, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
+			return nil, false, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
 		}
 		return &pschema.TypeSpec{
 			Type:  openapi3.TypeArray,
 			Items: elementType,
-		}, nil
+		}, true, nil
 	}
 
-	return nil, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
+	return nil, false, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
 }
 
 // genProperties returns a map of the property names and their corresponding
@@ -986,7 +1001,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 				// properties schema or have a type ref. Either way,
 				// the `propertyTypeSpec` method will take care of it.
 				for _, v := range value.Value.Properties {
-					addlPropsTypeSpec, err := ctx.propertyTypeSpec(sdkName, *v)
+					addlPropsTypeSpec, _, err := ctx.propertyTypeSpec(sdkName, *v)
 					if err != nil {
 						return nil, nil, errors.Wrapf(err, "generating additional properties type spec for %s (parentName: %s)", sdkName, parentName)
 					}
@@ -997,13 +1012,13 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 					}
 				}
 			} else {
-				typeSpec, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
+				typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
 				if err != nil {
 					return nil, nil, errors.Wrapf(err, "property %s", name)
 				}
 			}
 		} else {
-			typeSpec, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
+			typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "property %s", name)
 			}
@@ -1042,16 +1057,23 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 // property type spec gathered from a type's allOf schema.
 func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf openapi3.SchemaRefs) (map[string]pschema.PropertySpec, codegen.StringSet, error) {
 	var types []pschema.TypeSpec
+	newlyAddedTypes := codegen.NewStringSet()
+
 	for _, schemaRef := range allOf {
 		if schemaRef.Ref == "" && schemaRef.Value.Type != "object" {
 			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
 			continue
 		}
 
-		typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
+		typ, newlyAddedType, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
 			return nil, nil, err
 		}
+
+		if newlyAddedType {
+			newlyAddedTypes.Add(typ.Ref)
+		}
+
 		types = append(types, *typ)
 	}
 
@@ -1075,8 +1097,12 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 			requiredSpecs.Add(r)
 		}
 
-		ctx.visitedTypes.Delete(refTypeTok)
-		delete(ctx.pkg.Types, refTypeTok)
+		// Only delete type refs newly added from this
+		// allOf definition.
+		if newlyAddedTypes.Has(t.Ref) {
+			ctx.visitedTypes.Delete(refTypeTok)
+			delete(ctx.pkg.Types, refTypeTok)
+		}
 	}
 
 	return properties, requiredSpecs, nil
