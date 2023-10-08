@@ -25,8 +25,19 @@ This is required since the OpenaPI docs created by cloud providers aren't always
 
 ### Resource names
 
-Set the `operationId` of an endpoint path's request method or the `title` property of the
-request body schema type.
+Set the `operationId` of an endpoint path's request method. The value must contain the name
+of the resource on which the request URI is operation.
+
+For example, `POST /myResource` can have one of the following operation IDs
+since there are a few different ways to represent the action on the resource.
+
+-   `create_myResource`
+-   `createMyResource`
+-   `post_myResource`
+-   `myResource_post`
+
+Similary, a `GET /myresource` that retrieves a list of `myResource`s: `list_myResource`.
+A `GET /myResource/{id}` would have the operation ID `get_myResource`
 
 ### Path params
 
