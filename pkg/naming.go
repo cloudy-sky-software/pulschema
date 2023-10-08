@@ -3,8 +3,11 @@
 package pkg
 
 import (
+	"regexp"
 	"strings"
 )
+
+var numbersRegexp = regexp.MustCompile("[0-9]+[_]*[a-zA-Z]+")
 
 // ToSdkName converts a property or attribute name to the lowerCamelCase convention that
 // is used in Pulumi schema's properties.
@@ -13,6 +16,19 @@ func ToSdkName(s string) string {
 		s = strings.ToLower(string(r)) + s[1:]
 	}
 	return s
+}
+
+func snakeCaseToCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i, p := range parts[1:] {
+		parts[i+1] = ToPascalCase(p)
+	}
+
+	return strings.Join(parts, "")
+}
+
+func startsWithNumber(s string) bool {
+	return numbersRegexp.Match([]byte(s))
 }
 
 // ToPascalCase converts a string to PascalCase.
