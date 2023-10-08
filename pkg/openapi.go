@@ -107,6 +107,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			continue
 		}
 
+		if _, ok := csharpNamespaces[module]; !ok {
+			csharpNamespaces[module] = moduleToPascalCase(module)
+		}
+
 		glog.V(3).Infof("Processing path %s as %s\n", path, currentPath)
 
 		if pathItem.Get != nil {
@@ -287,8 +291,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
 					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
-
-				csharpNamespaces[module] = ToPascalCase(module)
 			}
 		}
 
@@ -379,8 +381,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
-
-		csharpNamespaces[module] = ToPascalCase(module)
 	}
 
 	return &ProviderMetadata{
