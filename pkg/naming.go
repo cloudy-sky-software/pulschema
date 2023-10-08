@@ -20,6 +20,17 @@ func ToPascalCase(s string) string {
 	return toCamelInitCase(s, true)
 }
 
+// moduleToPascalCase converts a module name to PascalCase.
+func moduleToPascalCase(mod string) string {
+	parts := strings.Split(mod, "/")
+
+	for i, p := range parts {
+		parts[i] = ToPascalCase(p)
+	}
+
+	return strings.Join(parts, "")
+}
+
 func toCamelInitCase(s string, initCase bool) string {
 	if s == strings.ToUpper(s) {
 		// lowercase the UPPER_SNAKE_CASE
