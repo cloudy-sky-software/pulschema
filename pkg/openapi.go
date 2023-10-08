@@ -598,6 +598,26 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 		}
 
+		if startsWithNumber(propName) {
+			propSpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: "_" + ToPascalCase(propName),
+				}),
+			}
+		} else if strings.Contains(propName, ".") {
+			propSpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
+				}),
+			}
+		} else if strings.Contains(propName, "_") {
+			propSpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(snakeCaseToCamelCase(propName)),
+				}),
+			}
+		}
+
 		// Skip read-only properties and `id` properties as direct inputs for resources.
 		if !prop.Value.ReadOnly && propName != "id" {
 			inputProperties[propName] = propSpec
@@ -642,6 +662,26 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				}
 			} else {
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
+			}
+
+			if startsWithNumber(propName) {
+				propSpec.Language = map[string]pschema.RawMessage{
+					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+						Name: "_" + ToPascalCase(propName),
+					}),
+				}
+			} else if strings.Contains(propName, ".") {
+				propSpec.Language = map[string]pschema.RawMessage{
+					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+						Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
+					}),
+				}
+			} else if strings.Contains(propName, "_") {
+				propSpec.Language = map[string]pschema.RawMessage{
+					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+						Name: ToPascalCase(snakeCaseToCamelCase(propName)),
+					}),
+				}
 			}
 
 			// Don't add `id` to the output properties since Pulumi
@@ -779,9 +819,11 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	propertySpec := pschema.PropertySpec{
 		Description: p.Value.Description,
 	}
-	if p.Value.Default != nil {
+
+	if p.Value.Default != nil && p.Value.Type != openapi3.TypeArray {
 		propertySpec.Default = p.Value.Default
 	}
+
 	languageName := strings.ToUpper(propName[:1]) + propName[1:]
 	if languageName == ctx.resourceName {
 		// .NET does not allow properties to be the same as the enclosing class - so special case these
@@ -790,13 +832,31 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 				Name: languageName + "Value",
 			}),
 		}
-	}
-	// JSONSchema type includes `$ref` and `$schema` properties, and $ is an invalid character in
-	// the generated names. Replace them with `Ref` and `Schema`.
-	if strings.HasPrefix(propName, "$") {
+	} else if strings.HasPrefix(propName, "$") {
+		// JSONSchema type includes `$ref` and `$schema` properties,
+		// and $ is an invalid character in the generated names.
+		// Replace them with `Ref` and `Schema`.
 		propertySpec.Language = map[string]pschema.RawMessage{
 			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
+			}),
+		}
+	} else if startsWithNumber(propName) {
+		propertySpec.Language = map[string]pschema.RawMessage{
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				Name: "_" + ToPascalCase(propName),
+			}),
+		}
+	} else if strings.Contains(propName, ".") {
+		propertySpec.Language = map[string]pschema.RawMessage{
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
+			}),
+		}
+	} else if strings.Contains(propName, "_") {
+		propertySpec.Language = map[string]pschema.RawMessage{
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				Name: ToPascalCase(snakeCaseToCamelCase(propName)),
 			}),
 		}
 	}
@@ -1027,6 +1087,26 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		propertySpec := pschema.PropertySpec{
 			Description: value.Value.Description,
 			TypeSpec:    *typeSpec,
+		}
+
+		if startsWithNumber(sdkName) {
+			propertySpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: "_" + ToPascalCase(sdkName),
+				}),
+			}
+		} else if strings.Contains(sdkName, ".") {
+			propertySpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(sdkName, ".", "_"))),
+				}),
+			}
+		} else if strings.Contains(sdkName, "_") {
+			propertySpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(snakeCaseToCamelCase(sdkName)),
+				}),
+			}
 		}
 
 		// Don't set default values for array-type properties
