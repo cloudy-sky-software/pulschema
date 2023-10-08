@@ -7,7 +7,7 @@ import (
 )
 
 func TestToSdkName(t *testing.T) {
-	assert.Equal(t, "stringProp", ToSdkName(ToSdkName("string_prop")))
+	assert.Equal(t, "stringProp", ToSdkName(snakeCaseToCamelCase("string_prop")))
 }
 
 func TestStartsWithNumber(t *testing.T) {
