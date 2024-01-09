@@ -23,7 +23,7 @@ This library does not convert OpenAPI specs without certain required modificatio
 That is, you'll need to standardize your OpenAPI spec with the following rules.
 This is required since the OpenaPI docs created by cloud providers aren't always perfect.
 
-**NEW**: Refer to the [conformance repo](https://github.com/cloudy-sky-software/cloud-provider-api-spec) for the rules related to the OpenAPI spec.
+**NEW**: Refer to the [conformance repo](https://github.com/cloudy-sky-software/cloud-provider-api-conformance) for the rules related to the OpenAPI spec.
 
 ## Credits
 
