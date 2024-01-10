@@ -1,6 +1,7 @@
 # Pulschema
 
 Pul(umi) schema from API specs. Learn how to generate a provider using this library: https://blog.cloudysky.software/archive/create-a-pulumi-provider-from-openapi-spec/.
+Use the [template repo](https://github.com/cloudy-sky-software/pulumi-provider-boilerplate) to get started quickly.
 
 ## What Is This?
 
