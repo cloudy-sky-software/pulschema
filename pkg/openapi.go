@@ -97,7 +97,12 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.autoNameMap = make(map[string]string)
 	o.visitedTypes = codegen.NewStringSet()
 
-	for path, pathItem := range o.Doc.Paths {
+	for _, path := range o.Doc.Paths.InMatchingOrder() {
+		pathItem := o.Doc.Paths.Find(path)
+		if pathItem == nil {
+			return nil, o.Doc, errors.Errorf("path item for path %s not found", path)
+		}
+
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
 		currentPath := path
@@ -119,7 +124,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
 
-			jsonReq := pathItem.Get.Responses.Get(200).Value.Content.Get(jsonMimeType)
+			jsonReq := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
 			if jsonReq.Schema.Value == nil {
 				contract.Failf("Path %s has no schema definition for status code 200", currentPath)
 			}
@@ -359,7 +364,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		responseCodes := []int{200, 201, 202}
 		var statusCodeOkResp *openapi3.ResponseRef
 		for _, code := range responseCodes {
-			statusCodeOkResp = pathItem.Post.Responses.Get(code)
+			statusCodeOkResp = pathItem.Post.Responses.Status(code)
 
 			// Stop looking for response body schema if we found
 			// one already.
