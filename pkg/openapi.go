@@ -70,13 +70,18 @@ type OpenAPIContext struct {
 	// and the property that can be auto-named.
 	autoNameMap  map[string]string
 	visitedTypes codegen.StringSet
-	// apiNameOverrides is a map of Pulumi type tokens whose
+	// sdkToApiNameMap is a map of Pulumi type tokens whose
 	// property names have been overridden to be camelCase
 	// instead of the name used by the provider API.
 	// Providers must consult this map in order to map
 	// SDK names to their proper API names before calling
 	// the provider API.
-	apiNameOverrides map[string]string
+	sdkToApiNameMap map[string]string
+	// pathParamNameMap holds the original path param name
+	// to the SDK name used in the Pulumi schema. This can
+	// be used by providers to look-up the value for a path
+	// param in the inputs map.
+	pathParamNameMap map[string]string
 }
 
 type duplicateEnumError struct {
@@ -103,7 +108,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
 	o.visitedTypes = codegen.NewStringSet()
-	o.apiNameOverrides = make(map[string]string)
+	o.sdkToApiNameMap = make(map[string]string)
+	o.pathParamNameMap = make(map[string]string)
 
 	for _, path := range o.Doc.Paths.InMatchingOrder() {
 		pathItem := o.Doc.Paths.Find(path)
@@ -397,8 +403,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	}
 
 	return &ProviderMetadata{
-		ResourceCRUDMap: o.resourceCRUDMap,
-		AutoNameMap:     o.autoNameMap,
+		ResourceCRUDMap:  o.resourceCRUDMap,
+		AutoNameMap:      o.autoNameMap,
+		SdkToApiNameMap:  o.sdkToApiNameMap,
+		PathParamNameMap: o.pathParamNameMap,
 	}, o.Doc, nil
 }
 
@@ -413,7 +421,8 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		apiNameOverrides:  o.apiNameOverrides,
+		sdkToApiNameMap:   o.sdkToApiNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -425,8 +434,10 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 		paramName := param.Value.Name
 		sdkName := ToSdkName(paramName)
+
 		if sdkName != paramName {
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+			addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+			addNameOverride(paramName, sdkName, o.pathParamNameMap)
 		}
 
 		inputProps[sdkName] = pschema.PropertySpec{
@@ -469,7 +480,8 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		apiNameOverrides:  o.apiNameOverrides,
+		sdkToApiNameMap:   o.sdkToApiNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -481,9 +493,12 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 
 		paramName := param.Value.Name
 		sdkName := ToSdkName(paramName)
+
 		if sdkName != paramName {
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+			addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+			addNameOverride(paramName, sdkName, o.pathParamNameMap)
 		}
+
 		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
@@ -535,9 +550,12 @@ func (o *OpenAPIContext) gatherResource(
 
 			paramName := param.Value.Name
 			sdkName := ToSdkName(paramName)
+
 			if sdkName != paramName {
-				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+				addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+				addNameOverride(paramName, sdkName, o.pathParamNameMap)
 			}
+
 			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
 				Description: param.Value.Description,
 				TypeSpec:    pschema.TypeSpec{Type: "string"},
@@ -588,7 +606,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		resourceName:      resourceName,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		apiNameOverrides:  o.apiNameOverrides,
+		sdkToApiNameMap:   o.sdkToApiNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	inputProperties := make(map[string]pschema.PropertySpec)
@@ -629,7 +648,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 		sdkName := ToSdkName(propName)
 		if sdkName != propName {
-			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
+			addNameOverride(sdkName, propName, o.sdkToApiNameMap)
 		}
 
 		// Skip read-only properties and `id` properties as direct inputs for resources.
@@ -680,7 +699,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 			sdkName := ToSdkName(propName)
 			if sdkName != propName {
-				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
+				addNameOverride(sdkName, propName, o.sdkToApiNameMap)
 			}
 
 			// Don't add `id` to the output properties since Pulumi
@@ -726,7 +745,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 		sdkName := ToSdkName(requiredProp)
 		if sdkName != requiredProp {
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+			addNameOverride(sdkName, requiredProp, o.sdkToApiNameMap)
 		}
 
 		requiredInputs.Add(sdkName)
@@ -741,7 +760,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	for _, requiredProp := range requestBodySchema.Required {
 		sdkName := ToSdkName(requiredProp)
 		if sdkName != requiredProp {
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+			addNameOverride(sdkName, requiredProp, o.sdkToApiNameMap)
 		}
 		requiredOutputs.Add(sdkName)
 	}
@@ -837,7 +856,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 
 	languageName := strings.ToUpper(propName[:1]) + propName[1:]
 	if languageName == ctx.resourceName {
-		// .NET does not allow properties to be the same as the enclosing class - so special case these
+		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		propertySpec.Language = map[string]pschema.RawMessage{
 			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: languageName + "Value",
@@ -887,6 +906,10 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		typName := ToPascalCase(schemaName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
+		if schemaName == "sql_mode" {
+			glog.Info("")
+		}
+
 		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
 		if !ok {
 			return nil, false, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
@@ -906,7 +929,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 		newType := !ctx.visitedTypes.Has(tok)
 
-		if !ctx.visitedTypes.Has(tok) {
+		if newType {
 			ctx.visitedTypes.Add(tok)
 
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
@@ -1054,8 +1077,9 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	for _, name := range codegen.SortedKeys(typeSchema.Properties) {
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
+
 		if sdkName != name {
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+			addNameOverride(sdkName, name, ctx.sdkToApiNameMap)
 		}
 
 		var typeSpec *pschema.TypeSpec
@@ -1097,25 +1121,14 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 			TypeSpec:    *typeSpec,
 		}
 
-		// if startsWithNumber(sdkName) {
-		// 	propertySpec.Language = map[string]pschema.RawMessage{
-		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-		// 			Name: "_" + ToPascalCase(sdkName),
-		// 		}),
-		// 	}
-		// } else if strings.Contains(sdkName, ".") {
-		// 	propertySpec.Language = map[string]pschema.RawMessage{
-		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-		// 			Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(sdkName, ".", "_"))),
-		// 		}),
-		// 	}
-		// } else if strings.Contains(sdkName, "_") {
-		// 	propertySpec.Language = map[string]pschema.RawMessage{
-		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-		// 			Name: ToPascalCase(snakeCaseToCamelCase(sdkName)),
-		// 		}),
-		// 	}
-		// }
+		// .NET does not allow properties to be the same as the enclosing class - so special case these.
+		if ToPascalCase(sdkName) == parentName {
+			propertySpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(sdkName) + "Value",
+				}),
+			}
+		}
 
 		// Don't set default values for array-type properties
 		// since Pulumi doesn't support it and also it isn't
@@ -1130,7 +1143,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	for _, name := range typeSchema.Required {
 		sdkName := ToSdkName(name)
 		if sdkName != name {
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+			addNameOverride(sdkName, name, ctx.sdkToApiNameMap)
 		}
 		if _, has := specs[sdkName]; has {
 			requiredSpecs.Add(sdkName)

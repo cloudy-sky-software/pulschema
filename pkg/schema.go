@@ -38,6 +38,12 @@ type ProviderMetadata struct {
 	// AutoNameMap is a map of resource type token and the name
 	// property that can be auto-named by the provider.
 	AutoNameMap map[string]string `json:"autoNameMap"`
+	// SdkToApiNameMap is a map of a property's name in the Pulumi
+	// schema to its actual API name. Can be nil.
+	SdkToApiNameMap map[string]string `json:"sdkToApiNameMap"`
+	// PathParamNameMap is a map of a path param's original name to
+	// its Pulumi schema name. Can be nil.
+	PathParamNameMap map[string]string `json:"pathParamNameMap"`
 }
 
 type resourceContext struct {
@@ -46,7 +52,8 @@ type resourceContext struct {
 	resourceName      string
 	openapiComponents openapi3.Components
 	visitedTypes      codegen.StringSet
-	apiNameOverrides  map[string]string
+	sdkToApiNameMap   map[string]string
+	pathParamMap      map[string]string
 }
 
 func rawMessage(v interface{}) pschema.RawMessage {
