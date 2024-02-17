@@ -3,6 +3,7 @@
 package pkg
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -77,4 +78,12 @@ func toCamelInitCase(s string, initCase bool) string {
 		}
 	}
 	return n
+}
+
+func addAPINameOverride(sdkName, apiPropName string, overrides map[string]string) {
+	if v, ok := overrides[sdkName]; ok && apiPropName != v {
+		panic(fmt.Errorf("mapping for sdkName %s already exists and has a value %s but a new mapping with value %s was request", sdkName, v, apiPropName))
+	}
+
+	overrides[sdkName] = apiPropName
 }

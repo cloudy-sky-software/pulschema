@@ -46,6 +46,7 @@ type resourceContext struct {
 	resourceName      string
 	openapiComponents openapi3.Components
 	visitedTypes      codegen.StringSet
+	apiNameOverrides  map[string]string
 }
 
 func rawMessage(v interface{}) pschema.RawMessage {

@@ -70,6 +70,13 @@ type OpenAPIContext struct {
 	// and the property that can be auto-named.
 	autoNameMap  map[string]string
 	visitedTypes codegen.StringSet
+	// apiNameOverrides is a map of Pulumi type tokens whose
+	// property names have been overridden to be camelCase
+	// instead of the name used by the provider API.
+	// Providers must consult this map in order to map
+	// SDK names to their proper API names before calling
+	// the provider API.
+	apiNameOverrides map[string]string
 }
 
 type duplicateEnumError struct {
@@ -96,6 +103,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
 	o.visitedTypes = codegen.NewStringSet()
+	o.apiNameOverrides = make(map[string]string)
 
 	for _, path := range o.Doc.Paths.InMatchingOrder() {
 		pathItem := o.Doc.Paths.Find(path)
@@ -405,6 +413,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
+		apiNameOverrides:  o.apiNameOverrides,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -415,11 +424,23 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		}
 
 		paramName := param.Value.Name
-		inputProps[paramName] = pschema.PropertySpec{
+		sdkName := paramName
+		if startsWithNumber(paramName) {
+			sdkName = "_" + ToSdkName(paramName)
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		} else if strings.Contains(paramName, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		} else if strings.Contains(paramName, "_") {
+			sdkName = snakeCaseToCamelCase(paramName)
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		}
+
+		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
 		}
-		requiredInputs.Add(paramName)
+		requiredInputs.Add(sdkName)
 	}
 
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
@@ -455,6 +476,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
+		apiNameOverrides:  o.apiNameOverrides,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -465,11 +487,22 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		}
 
 		paramName := param.Value.Name
-		inputProps[paramName] = pschema.PropertySpec{
+		sdkName := paramName
+		if startsWithNumber(paramName) {
+			sdkName = "_" + ToSdkName(paramName)
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		} else if strings.Contains(paramName, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		} else if strings.Contains(paramName, "_") {
+			sdkName = snakeCaseToCamelCase(paramName)
+			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+		}
+		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
 		}
-		requiredInputs.Add(paramName)
+		requiredInputs.Add(sdkName)
 	}
 
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
@@ -515,7 +548,19 @@ func (o *OpenAPIContext) gatherResource(
 			}
 
 			paramName := param.Value.Name
-			resourceSpec.InputProperties[paramName] = pschema.PropertySpec{
+			sdkName := paramName
+
+			if startsWithNumber(paramName) {
+				sdkName = "_" + ToSdkName(paramName)
+				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+			} else if strings.Contains(paramName, ".") {
+				sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
+				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+			} else if strings.Contains(paramName, "_") {
+				sdkName = snakeCaseToCamelCase(paramName)
+				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
+			}
+			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
 				Description: param.Value.Description,
 				TypeSpec:    pschema.TypeSpec{Type: "string"},
 			}
@@ -565,6 +610,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		resourceName:      resourceName,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
+		apiNameOverrides:  o.apiNameOverrides,
 	}
 
 	inputProperties := make(map[string]pschema.PropertySpec)
@@ -603,29 +649,21 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 		}
 
+		sdkName := propName
 		if startsWithNumber(propName) {
-			propSpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: "_" + ToPascalCase(propName),
-				}),
-			}
+			sdkName = "_" + ToSdkName(propName)
+			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 		} else if strings.Contains(propName, ".") {
-			propSpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
-				}),
-			}
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
+			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 		} else if strings.Contains(propName, "_") {
-			propSpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: ToPascalCase(snakeCaseToCamelCase(propName)),
-				}),
-			}
+			sdkName = snakeCaseToCamelCase(propName)
+			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 		}
 
 		// Skip read-only properties and `id` properties as direct inputs for resources.
-		if !prop.Value.ReadOnly && propName != "id" {
-			inputProperties[propName] = propSpec
+		if !prop.Value.ReadOnly && sdkName != "id" {
+			inputProperties[sdkName] = propSpec
 		}
 
 		// - All input properties must also be available as output
@@ -633,8 +671,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		// - Don't add `id` to the output properties since Pulumi
 		// automatically adds that via `CustomResource` which
 		// is what all resources in the SDK will extend.
-		if propName != "id" {
-			properties[propName] = propSpec
+		if sdkName != "id" {
+			properties[sdkName] = propSpec
 		}
 	}
 
@@ -669,31 +707,23 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 			}
 
+			sdkName := propName
 			if startsWithNumber(propName) {
-				propSpec.Language = map[string]pschema.RawMessage{
-					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-						Name: "_" + ToPascalCase(propName),
-					}),
-				}
+				sdkName = "_" + ToSdkName(propName)
+				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 			} else if strings.Contains(propName, ".") {
-				propSpec.Language = map[string]pschema.RawMessage{
-					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-						Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
-					}),
-				}
+				sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
+				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 			} else if strings.Contains(propName, "_") {
-				propSpec.Language = map[string]pschema.RawMessage{
-					"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-						Name: ToPascalCase(snakeCaseToCamelCase(propName)),
-					}),
-				}
+				sdkName = snakeCaseToCamelCase(propName)
+				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 			}
 
 			// Don't add `id` to the output properties since Pulumi
 			// automatically adds that via `CustomResource` which
 			// is what all resources in the SDK will extend.
-			if propName != "id" {
-				properties[propName] = propSpec
+			if sdkName != "id" {
+				properties[sdkName] = propSpec
 			}
 		}
 	}
@@ -706,7 +736,10 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		// If the required property's schema is not found,
 		// it's likely that the OpenAPI doc lists the
 		// required props that belong to some referenced
-		// type. So ignore this.
+		// type that's accidentally listed in the top-level
+		// required properties. The referenced type would
+		// (or should) have this property already,
+		// so ignore it.
 		if propSchema == nil {
 			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, resourceName)
 			continue
@@ -727,7 +760,19 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			continue
 		}
 
-		requiredInputs.Add(requiredProp)
+		sdkName := requiredProp
+		if startsWithNumber(requiredProp) {
+			sdkName = "_" + ToSdkName(requiredProp)
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		} else if strings.Contains(requiredProp, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(requiredProp, ".", "_"))
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		} else if strings.Contains(requiredProp, "_") {
+			sdkName = snakeCaseToCamelCase(requiredProp)
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		}
+
+		requiredInputs.Add(sdkName)
 	}
 
 	// Create a set of required outputs.
@@ -736,8 +781,19 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	// properties in the OpenAPI spec could all be marked as
 	// read-only in which case, they wouldn't have been
 	// added to the `requiredInputs` set.
-	for _, required := range requestBodySchema.Required {
-		requiredOutputs.Add(required)
+	for _, requiredProp := range requestBodySchema.Required {
+		sdkName := requiredProp
+		if startsWithNumber(requiredProp) {
+			sdkName = "_" + ToSdkName(requiredProp)
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		} else if strings.Contains(requiredProp, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(requiredProp, ".", "_"))
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		} else if strings.Contains(requiredProp, "_") {
+			sdkName = snakeCaseToCamelCase(requiredProp)
+			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
+		}
+		requiredOutputs.Add(sdkName)
 	}
 	// If there is a response body schema, then add its required
 	// properties as well.
@@ -846,25 +902,19 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
 			}),
 		}
-	} else if startsWithNumber(propName) {
-		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-				Name: "_" + ToPascalCase(propName),
-			}),
-		}
-	} else if strings.Contains(propName, ".") {
-		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-				Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))),
-			}),
-		}
-	} else if strings.Contains(propName, "_") {
-		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-				Name: ToPascalCase(snakeCaseToCamelCase(propName)),
-			}),
-		}
 	}
+
+	// sdkName := propName
+	// if startsWithNumber(propName) {
+	// 	sdkName = "_" + ToSdkName(propName)
+	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
+	// } else if strings.Contains(propName, ".") {
+	// 	sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
+	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
+	// } else if strings.Contains(propName, "_") {
+	// 	sdkName = snakeCaseToCamelCase(propName)
+	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
+	// }
 
 	typeSpec, _, err := ctx.propertyTypeSpec(propName, p)
 	if err != nil {
@@ -1054,6 +1104,16 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	for _, name := range codegen.SortedKeys(typeSchema.Properties) {
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
+		if startsWithNumber(name) {
+			sdkName = "_" + ToSdkName(name)
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		} else if strings.Contains(name, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(name, ".", "_"))
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		} else if strings.Contains(name, "_") {
+			sdkName = snakeCaseToCamelCase(name)
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		}
 
 		var typeSpec *pschema.TypeSpec
 		var err error
@@ -1094,25 +1154,25 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 			TypeSpec:    *typeSpec,
 		}
 
-		if startsWithNumber(sdkName) {
-			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: "_" + ToPascalCase(sdkName),
-				}),
-			}
-		} else if strings.Contains(sdkName, ".") {
-			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(sdkName, ".", "_"))),
-				}),
-			}
-		} else if strings.Contains(sdkName, "_") {
-			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
-					Name: ToPascalCase(snakeCaseToCamelCase(sdkName)),
-				}),
-			}
-		}
+		// if startsWithNumber(sdkName) {
+		// 	propertySpec.Language = map[string]pschema.RawMessage{
+		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+		// 			Name: "_" + ToPascalCase(sdkName),
+		// 		}),
+		// 	}
+		// } else if strings.Contains(sdkName, ".") {
+		// 	propertySpec.Language = map[string]pschema.RawMessage{
+		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+		// 			Name: ToPascalCase(snakeCaseToCamelCase(strings.ReplaceAll(sdkName, ".", "_"))),
+		// 		}),
+		// 	}
+		// } else if strings.Contains(sdkName, "_") {
+		// 	propertySpec.Language = map[string]pschema.RawMessage{
+		// 		"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+		// 			Name: ToPascalCase(snakeCaseToCamelCase(sdkName)),
+		// 		}),
+		// 	}
+		// }
 
 		// Don't set default values for array-type properties
 		// since Pulumi doesn't support it and also it isn't
@@ -1126,6 +1186,16 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 
 	for _, name := range typeSchema.Required {
 		sdkName := ToSdkName(name)
+		if startsWithNumber(name) {
+			sdkName = "_" + ToSdkName(name)
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		} else if strings.Contains(name, ".") {
+			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(name, ".", "_"))
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		} else if strings.Contains(name, "_") {
+			sdkName = snakeCaseToCamelCase(name)
+			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
+		}
 		if _, has := specs[sdkName]; has {
 			requiredSpecs.Add(sdkName)
 		}
