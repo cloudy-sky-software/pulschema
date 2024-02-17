@@ -424,15 +424,8 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		}
 
 		paramName := param.Value.Name
-		sdkName := paramName
-		if startsWithNumber(paramName) {
-			sdkName = "_" + ToSdkName(paramName)
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-		} else if strings.Contains(paramName, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-		} else if strings.Contains(paramName, "_") {
-			sdkName = snakeCaseToCamelCase(paramName)
+		sdkName := ToSdkName(paramName)
+		if sdkName != paramName {
 			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
 		}
 
@@ -487,15 +480,8 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		}
 
 		paramName := param.Value.Name
-		sdkName := paramName
-		if startsWithNumber(paramName) {
-			sdkName = "_" + ToSdkName(paramName)
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-		} else if strings.Contains(paramName, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
-			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-		} else if strings.Contains(paramName, "_") {
-			sdkName = snakeCaseToCamelCase(paramName)
+		sdkName := ToSdkName(paramName)
+		if sdkName != paramName {
 			addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
 		}
 		inputProps[sdkName] = pschema.PropertySpec{
@@ -548,16 +534,8 @@ func (o *OpenAPIContext) gatherResource(
 			}
 
 			paramName := param.Value.Name
-			sdkName := paramName
-
-			if startsWithNumber(paramName) {
-				sdkName = "_" + ToSdkName(paramName)
-				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-			} else if strings.Contains(paramName, ".") {
-				sdkName = snakeCaseToCamelCase(strings.ReplaceAll(paramName, ".", "_"))
-				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
-			} else if strings.Contains(paramName, "_") {
-				sdkName = snakeCaseToCamelCase(paramName)
+			sdkName := ToSdkName(paramName)
+			if sdkName != paramName {
 				addAPINameOverride(sdkName, paramName, o.apiNameOverrides)
 			}
 			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
@@ -649,15 +627,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 		}
 
-		sdkName := propName
-		if startsWithNumber(propName) {
-			sdkName = "_" + ToSdkName(propName)
-			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
-		} else if strings.Contains(propName, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
-			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
-		} else if strings.Contains(propName, "_") {
-			sdkName = snakeCaseToCamelCase(propName)
+		sdkName := ToSdkName(propName)
+		if sdkName != propName {
 			addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 		}
 
@@ -707,15 +678,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 			}
 
-			sdkName := propName
-			if startsWithNumber(propName) {
-				sdkName = "_" + ToSdkName(propName)
-				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
-			} else if strings.Contains(propName, ".") {
-				sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
-				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
-			} else if strings.Contains(propName, "_") {
-				sdkName = snakeCaseToCamelCase(propName)
+			sdkName := ToSdkName(propName)
+			if sdkName != propName {
 				addAPINameOverride(sdkName, propName, o.apiNameOverrides)
 			}
 
@@ -760,15 +724,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			continue
 		}
 
-		sdkName := requiredProp
-		if startsWithNumber(requiredProp) {
-			sdkName = "_" + ToSdkName(requiredProp)
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
-		} else if strings.Contains(requiredProp, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(requiredProp, ".", "_"))
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
-		} else if strings.Contains(requiredProp, "_") {
-			sdkName = snakeCaseToCamelCase(requiredProp)
+		sdkName := ToSdkName(requiredProp)
+		if sdkName != requiredProp {
 			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
 		}
 
@@ -782,15 +739,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	// read-only in which case, they wouldn't have been
 	// added to the `requiredInputs` set.
 	for _, requiredProp := range requestBodySchema.Required {
-		sdkName := requiredProp
-		if startsWithNumber(requiredProp) {
-			sdkName = "_" + ToSdkName(requiredProp)
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
-		} else if strings.Contains(requiredProp, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(requiredProp, ".", "_"))
-			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
-		} else if strings.Contains(requiredProp, "_") {
-			sdkName = snakeCaseToCamelCase(requiredProp)
+		sdkName := ToSdkName(requiredProp)
+		if sdkName != requiredProp {
 			addAPINameOverride(sdkName, requiredProp, o.apiNameOverrides)
 		}
 		requiredOutputs.Add(sdkName)
@@ -1104,14 +1054,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	for _, name := range codegen.SortedKeys(typeSchema.Properties) {
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
-		if startsWithNumber(name) {
-			sdkName = "_" + ToSdkName(name)
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
-		} else if strings.Contains(name, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(name, ".", "_"))
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
-		} else if strings.Contains(name, "_") {
-			sdkName = snakeCaseToCamelCase(name)
+		if sdkName != name {
 			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
 		}
 
@@ -1186,14 +1129,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 
 	for _, name := range typeSchema.Required {
 		sdkName := ToSdkName(name)
-		if startsWithNumber(name) {
-			sdkName = "_" + ToSdkName(name)
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
-		} else if strings.Contains(name, ".") {
-			sdkName = snakeCaseToCamelCase(strings.ReplaceAll(name, ".", "_"))
-			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
-		} else if strings.Contains(name, "_") {
-			sdkName = snakeCaseToCamelCase(name)
+		if sdkName != name {
 			addAPINameOverride(sdkName, name, ctx.apiNameOverrides)
 		}
 		if _, has := specs[sdkName]; has {
