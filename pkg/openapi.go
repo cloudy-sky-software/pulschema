@@ -873,18 +873,6 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		}
 	}
 
-	// sdkName := propName
-	// if startsWithNumber(propName) {
-	// 	sdkName = "_" + ToSdkName(propName)
-	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
-	// } else if strings.Contains(propName, ".") {
-	// 	sdkName = snakeCaseToCamelCase(strings.ReplaceAll(propName, ".", "_"))
-	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
-	// } else if strings.Contains(propName, "_") {
-	// 	sdkName = snakeCaseToCamelCase(propName)
-	// 	addAPINameOverride(sdkName, propName, ctx.apiNameOverrides)
-	// }
-
 	typeSpec, _, err := ctx.propertyTypeSpec(propName, p)
 	if err != nil {
 		contract.Failf("Failed to generate type spec (resource: %s, prop %s): %v", ctx.resourceName, propName, err)
