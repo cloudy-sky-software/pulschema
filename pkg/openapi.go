@@ -799,12 +799,16 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			refType := pkgCtx.pkg.Types[refTypeTok]
 
 			for name, propSpec := range refType.Properties {
+				if name == "id" {
+					continue
+				}
+
 				inputProperties[name] = propSpec
 				properties[name] = propSpec
 			}
 
 			for _, r := range refType.Required {
-				if requiredInputs.Has(r) {
+				if requiredInputs.Has(r) || r == "id" {
 					continue
 				}
 				requiredInputs.Add(r)
