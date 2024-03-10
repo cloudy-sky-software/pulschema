@@ -28,5 +28,5 @@ func TestSimplePropertyRef(t *testing.T) {
 	resourceSpec, ok := testPulumiPkg.Resources["fake-package:fakeresource/v2:FakeResource"]
 	assert.Truef(t, ok, "Expected to find a resource called FakeResource: %v", testPulumiPkg.Resources)
 
-	assert.Equal(t, "string", resourceSpec.InputProperties["simple_prop"].Type)
+	assert.Equal(t, "string", resourceSpec.InputProperties["simpleProp"].Type)
 }
