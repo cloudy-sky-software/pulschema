@@ -12,7 +12,7 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	if useParentResourceAsModule {
 		parentPath := getParentPath(path)
 		parentParts := strings.Split(strings.TrimPrefix(parentPath, pathSeparator), pathSeparator)
-		return parentParts[len(parentParts)-1]
+		return strings.ToLower(parentParts[len(parentParts)-1])
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
@@ -20,11 +20,11 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	// If the first item in parts is not a version number prefix, then
 	// return as-is.
 	if !versionRegex.Match([]byte(parts[0])) {
-		return parts[0]
+		return strings.ToLower(parts[0])
 	}
 
 	// Otherwise, we should use a versioned module.
-	return parts[1] + pathSeparator + parts[0]
+	return strings.ToLower(parts[1]) + pathSeparator + parts[0]
 }
 
 func getParentPath(path string) string {

@@ -22,7 +22,7 @@ components:
           $ref: "#/components/schemas/a_string_prop"
 
 paths:
-  /v2/fakeresource:
+  /v2/fakeResource:
     post:
       operationId: create_fake_resource
       requestBody:
