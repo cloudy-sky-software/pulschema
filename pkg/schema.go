@@ -35,9 +35,20 @@ type ProviderMetadata struct {
 	// ResourceToOperationMap identifies the endpoint that will
 	// handle the CRUD for a given Pulumi resource type token.
 	ResourceCRUDMap map[string]*CRUDOperationsMap `json:"crudMap"`
+
 	// AutoNameMap is a map of resource type token and the name
 	// property that can be auto-named by the provider.
 	AutoNameMap map[string]string `json:"autoNameMap"`
+
+	// SDKToAPINameMap is a map of a property's name in the Pulumi
+	// schema to its actual API name. Can be nil.
+	SDKToAPINameMap map[string]string `json:"sdkToApiNameMap"`
+	// APIToSDKNameMap is the inverse of SDKToAPINameMap.
+	APIToSDKNameMap map[string]string `json:"apiToSdkNameMap"`
+
+	// PathParamNameMap is a map of a path param's original name to
+	// its Pulumi schema name. Can be nil.
+	PathParamNameMap map[string]string `json:"pathParamNameMap"`
 }
 
 type resourceContext struct {
@@ -46,6 +57,9 @@ type resourceContext struct {
 	resourceName      string
 	openapiComponents openapi3.Components
 	visitedTypes      codegen.StringSet
+	sdkToAPINameMap   map[string]string
+	apiToSDKNameMap   map[string]string
+	pathParamMap      map[string]string
 }
 
 func rawMessage(v interface{}) pschema.RawMessage {

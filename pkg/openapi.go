@@ -24,7 +24,6 @@ import (
 const (
 	componentsSchemaRefPrefix = "#/components/schemas/"
 	jsonMimeType              = "application/json"
-	arrayType                 = "array"
 	parameterLocationPath     = "path"
 	pathSeparator             = "/"
 )
@@ -69,7 +68,22 @@ type OpenAPIContext struct {
 	resourceCRUDMap map[string]*CRUDOperationsMap
 	// autoNameMap is a map of the resource type token
 	// and the property that can be auto-named.
-	autoNameMap map[string]string
+	autoNameMap  map[string]string
+	visitedTypes codegen.StringSet
+	// sdkToAPINameMap is a map of Pulumi type tokens whose
+	// property names have been overridden to be camelCase
+	// instead of the name used by the provider API.
+	// Providers must consult this map in order to map
+	// SDK names to their proper API names before calling
+	// the provider API.
+	sdkToAPINameMap map[string]string
+	// apiToSDKNameMap is the inverse of sdkToAPINameMap.
+	apiToSDKNameMap map[string]string
+	// pathParamNameMap holds the original path param name
+	// to the SDK name used in the Pulumi schema. This can
+	// be used by providers to look-up the value for a path
+	// param in the inputs map.
+	pathParamNameMap map[string]string
 }
 
 type duplicateEnumError struct {
@@ -78,182 +92,6 @@ type duplicateEnumError struct {
 
 func (d *duplicateEnumError) Error() string {
 	return d.msg
-}
-
-func getModuleFromPath(path string, useParentResourceAsModule bool) string {
-	if useParentResourceAsModule {
-		parentPath := getParentPath(path)
-		parentParts := strings.Split(strings.TrimPrefix(parentPath, pathSeparator), pathSeparator)
-		return parentParts[len(parentParts)-1]
-	}
-
-	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
-
-	// If the first item in parts is not a version number prefix, then
-	// return as-is.
-	if !versionRegex.Match([]byte(parts[0])) {
-		return parts[0]
-	}
-
-	// Otherwise, we should use a versioned module.
-	return parts[1] + pathSeparator + parts[0]
-}
-
-func getParentPath(path string) string {
-	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
-	lastPathPart := parts[len(parts)-1]
-	if !strings.HasPrefix(lastPathPart, "{") && !strings.HasSuffix(lastPathPart, "}") {
-		return path
-	}
-
-	// Skip the last path part which contains a path parameter.
-	return pathSeparator + strings.Join(parts[0:len(parts)-1], pathSeparator)
-}
-
-// index returns the index of the element `toFind`
-// in the slice `slice`. Returns -1 if not found.
-func index(slice []string, toFind string) int {
-	for i, s := range slice {
-		if s == toFind {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByTypeSpecNamespace bool) string {
-	var replaceKeywords []string
-
-	switch method {
-	case http.MethodDelete:
-		replaceKeywords = append(replaceKeywords, "delete")
-	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "get", "list")
-	case http.MethodPatch:
-		replaceKeywords = append(replaceKeywords, "update")
-	case http.MethodPost:
-		replaceKeywords = append(replaceKeywords, "create", "set", "post", "put")
-	case http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "update", "create", "set", "put")
-	}
-
-	result := originalOperationID
-
-	// TypeSpec-generated operations can have an operation ID separated by the namespace
-	// the operation is defined in.
-	if isSeparatedByTypeSpecNamespace {
-		parts := strings.Split(originalOperationID, "_")
-		result = parts[len(parts)-1]
-	} else if strings.Contains(originalOperationID, "_") {
-		parts := strings.Split(originalOperationID, "_")
-		result = parts[0]
-		for _, p := range parts[1:] {
-			result += ToPascalCase(p)
-		}
-	}
-
-	for _, v := range replaceKeywords {
-		result = strings.ReplaceAll(result, v, "")
-		result = strings.ReplaceAll(result, ToPascalCase(v), "")
-	}
-
-	resourceTitle := ToPascalCase(result)
-
-	glog.Infof("converted operation ID %s to resource title %s\n", originalOperationID, resourceTitle)
-
-	return resourceTitle
-}
-
-func ensureRequestSchemaTitle(schemaName string, schemaRef *openapi3.SchemaRef) {
-	if schemaRef.Value.Title != "" {
-		return
-	}
-
-	if strings.Contains(schemaName, "_") {
-		schemaRef.Value.Title = ToPascalCase(schemaName)
-	} else {
-		parts := strings.Split(schemaName, "_")
-		result := parts[0]
-		for _, p := range parts[1:] {
-			result += ToPascalCase(p)
-		}
-
-		schemaRef.Value.Title = result
-	}
-}
-
-// ensureIDHierarchyInRequestPath ensures that the IDs in the path
-// segment following the rules:
-//
-// 1. parent resource id param should not be called `id`.
-//
-// 2. the sub-resource, if present, should use `id` if the path
-// variable represents an ID.
-func ensureIDHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) string {
-	segments := strings.Split(path, pathSeparator)
-	numSegments := len(segments)
-
-	pathParamTransformationsMap := make(map[string]string)
-
-	updatePathParamNames := func(params openapi3.Parameters) {
-		for _, param := range params {
-			if param.Value.In != "path" {
-				continue
-			}
-
-			if transformedName, ok := pathParamTransformationsMap["{"+param.Value.Name+"}"]; ok {
-				param.Value.Name = transformedName
-			}
-		}
-	}
-
-	for i, segment := range segments {
-		if segment == "" || !strings.Contains(segment, "{") {
-			continue
-		}
-
-		var transformedParam string
-
-		// Satisfies rule #1.
-		if i != numSegments-1 && segment == "id" {
-			parentResource := segments[i-1]
-			transformedParam = parentResource
-			if strings.Contains(parentResource, "_") {
-				transformedParam += "_id"
-			} else {
-				transformedParam += "Id"
-			}
-		} else if i == numSegments-1 && segment != "id" && strings.Contains(strings.ToLower(segment), "id") {
-			// Satisfies rule #2.
-			transformedParam = "id"
-		}
-
-		if transformedParam == "" {
-			continue
-		}
-
-		pathParamTransformationsMap[segments[i]] = transformedParam
-		segments[i] = "{" + transformedParam + "}"
-	}
-
-	if pathItem.Delete != nil && len(pathItem.Delete.Parameters) > 0 {
-		updatePathParamNames(pathItem.Delete.Parameters)
-	}
-	if pathItem.Get != nil && len(pathItem.Get.Parameters) > 0 {
-		updatePathParamNames(pathItem.Get.Parameters)
-	}
-	if pathItem.Patch != nil && len(pathItem.Patch.Parameters) > 0 {
-		updatePathParamNames(pathItem.Patch.Parameters)
-	}
-	if pathItem.Put != nil && len(pathItem.Put.Parameters) > 0 {
-		updatePathParamNames(pathItem.Put.Parameters)
-	}
-	if pathItem.Post != nil && len(pathItem.Post.Parameters) > 0 {
-		updatePathParamNames(pathItem.Post.Parameters)
-	}
-
-	return strings.Join(segments, pathSeparator)
 }
 
 // GatherResourcesFromAPI gathers resources from API endpoints.
@@ -271,24 +109,39 @@ func ensureIDHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, openapi3.T, error) {
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
+	o.visitedTypes = codegen.NewStringSet()
+	o.sdkToAPINameMap = make(map[string]string)
+	o.apiToSDKNameMap = make(map[string]string)
+	o.pathParamNameMap = make(map[string]string)
 
-	for path, pathItem := range o.Doc.Paths {
+	for _, path := range o.Doc.Paths.InMatchingOrder() {
+		pathItem := o.Doc.Paths.Find(path)
+		if pathItem == nil {
+			return nil, o.Doc, errors.Errorf("path item for path %s not found", path)
+		}
+
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
-		currentPath := ensureIDHierarchyInRequestPath(path, pathItem)
+		currentPath := path
 		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
 
 		if index(o.ExcludedPaths, path) > -1 {
 			continue
 		}
 
+		if _, ok := csharpNamespaces[module]; !ok {
+			csharpNamespaces[module] = moduleToPascalCase(module)
+		}
+
 		glog.V(3).Infof("Processing path %s as %s\n", path, currentPath)
 
 		if pathItem.Get != nil {
+			contract.Assertf(pathItem.Get.OperationID != "", "operationId is missing for path GET %s", currentPath)
+
 			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
 
-			jsonReq := pathItem.Get.Responses.Get(200).Value.Content.Get(jsonMimeType)
+			jsonReq := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
 			if jsonReq.Schema.Value == nil {
 				contract.Failf("Path %s has no schema definition for status code 200", currentPath)
 			}
@@ -307,15 +160,15 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
 			// or a list of resources.
-			if resourceType.Type != arrayType && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+			if resourceType.Type != openapi3.TypeArray && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				// If there is a discriminator then we should set this operation
 				// as the read endpoint for each of the types in the mapping.
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						ensureRequestSchemaTitle(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
+						title := getResourceTitleFromRequestSchema(schemaName, dResource)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, title)
 						setReadOperationMapping(typeToken)
 
 						funcName := "get" + dResource.Value.Title
@@ -325,14 +178,16 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						setReadOperationMapping(funcTypeToken)
 					}
 				} else {
-					if resourceType.Title == "" {
-						resourceType.Title = getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
-					}
+					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
+					// The resource needs to be read from the cloud provider API,
+					// so we should map this "read" endpoint for this resource.
+					// This is in addition to separately adding the "get" function
+					// too.
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setReadOperationMapping(typeToken)
 
-					funcName := "get" + resourceType.Title
+					funcName := "get" + resourceName
 					funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 					getterFuncSpec := o.genGetFunc(*pathItem, *jsonReq.Schema, module, funcName)
 					o.Pkg.Functions[funcTypeToken] = getterFuncSpec
@@ -341,18 +196,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			// Add the API operation as a list* function.
-			if resourceType.Type == arrayType || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
-				var funcName string
-				if resourceType.Title != "" {
-					resourceType.Title = strings.ReplaceAll(resourceType.Title, "List", "")
-					if !strings.HasPrefix(resourceType.Title, "list") {
-						funcName = "list" + resourceType.Title
-					}
-				} else {
-					funcName = "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
-				}
+			if resourceType.Type == openapi3.TypeArray || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, funcName, module)
+				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, module, funcName)
 				if err != nil {
 					return nil, o.Doc, errors.Wrap(err, "generating list function")
 				}
@@ -363,6 +210,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if pathItem.Patch != nil {
+			contract.Assertf(pathItem.Patch.OperationID != "", "operationId is missing for path PATCH %s", currentPath)
+
 			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("PATCH: Parent path for %s is %s\n", currentPath, parentPath)
 
@@ -382,12 +231,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
-			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
-			}
-			if resourceType.Title == "" {
-				return nil, o.Doc, errors.Errorf("patch request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
-			}
 
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
 				schemaNames := make([]string, 0)
@@ -414,17 +257,20 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				for _, n := range schemaNames {
 					dResource := o.Doc.Components.Schemas[n]
-					ensureRequestSchemaTitle(n, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
+					resourceName := getResourceTitleFromRequestSchema(n, dResource)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setUpdateOperationMapping(typeToken)
 				}
 			} else {
-				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
+				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
+				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setUpdateOperationMapping(typeToken)
 			}
 		}
 
 		if pathItem.Put != nil {
+			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
+
 			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("PUT: Parent path for %s is %s\n", currentPath, parentPath)
 
@@ -444,39 +290,35 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			resourceType := jsonReq.Schema.Value
-			if resourceType.Title == "" {
-				resourceType.Title = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
-			}
-			if resourceType.Title == "" {
-				return nil, o.Doc, errors.Errorf("put request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
-			}
 
 			if resourceType.Discriminator != nil {
 				for _, ref := range resourceType.Discriminator.Mapping {
 					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 					dResource := o.Doc.Components.Schemas[schemaName]
-					ensureRequestSchemaTitle(schemaName, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
+					resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setPutOperationMapping(typeToken)
 				}
 			} else {
-				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
+				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
+				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setPutOperationMapping(typeToken)
 			}
 
 			// PUT methods can be used to create as well as update resources.
 			// AS LONG AS the endpoint does not end with a path param. It cannot be used
 			// to create resources if the endpoint itself requires the ID of the resource.
-			if !strings.HasSuffix(currentPath, "}") {
-				if err := o.gatherResource(currentPath, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
+			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
+				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
+				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
 					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
-
-				csharpNamespaces[module] = ToPascalCase(module)
 			}
 		}
 
 		if pathItem.Delete != nil {
+			contract.Assertf(pathItem.Delete.OperationID != "", "operationId is missing for path DELETE %s", currentPath)
+
 			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
 
@@ -497,31 +339,23 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 
 				resourceType := jsonReq.Schema.Value
-				if resourceType.Title == "" {
-					resourceType.Title = getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
-				}
-				if resourceType.Title == "" {
-					return nil, o.Doc, errors.Errorf("delete request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
-				}
 
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						ensureRequestSchemaTitle(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, dResource.Value.Title)
+						resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 						setDeleteOperationMapping(typeToken)
 					}
 				} else {
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceType.Title)
+					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
-				resourceTypeTitle := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
-				if resourceTypeTitle == "" {
-					return nil, o.Doc, errors.New("request body schema must have a title or the operation must have an operationid")
-				}
-				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceTypeTitle)
+				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setDeleteOperationMapping(typeToken)
 			}
 		}
@@ -529,6 +363,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Post == nil {
 			continue
 		}
+
+		contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
 
 		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
 		if jsonReq.Schema.Value == nil {
@@ -545,7 +381,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		responseCodes := []int{200, 201, 202}
 		var statusCodeOkResp *openapi3.ResponseRef
 		for _, code := range responseCodes {
-			statusCodeOkResp = pathItem.Post.Responses.Get(code)
+			statusCodeOkResp = pathItem.Post.Responses.Status(code)
 
 			// Stop looking for response body schema if we found
 			// one already.
@@ -562,24 +398,19 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 		}
 
-		if resourceRequestType.Title == "" {
-			resourceRequestType.Title = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
-		}
+		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 
-		if resourceRequestType.Title == "" {
-			return nil, o.Doc, errors.Errorf("post request body schema must have a title or the operation must have an operationid (path: %s)", currentPath)
-		}
-
-		if err := o.gatherResource(currentPath, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
+		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
-
-		csharpNamespaces[module] = ToPascalCase(module)
 	}
 
 	return &ProviderMetadata{
-		ResourceCRUDMap: o.resourceCRUDMap,
-		AutoNameMap:     o.autoNameMap,
+		ResourceCRUDMap:  o.resourceCRUDMap,
+		AutoNameMap:      o.autoNameMap,
+		SDKToAPINameMap:  o.sdkToAPINameMap,
+		APIToSDKNameMap:  o.apiToSDKNameMap,
+		PathParamNameMap: o.pathParamNameMap,
 	}, o.Doc, nil
 }
 
@@ -587,13 +418,16 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // The item type can have a discriminator in the schema. This method will return a type
 // that will refer to an output type that uses the discriminator properties to correctly
 // type the output result.
-func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, funcName, module string) (*pschema.FunctionSpec, error) {
+func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, module, funcName string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
 	funcPkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -604,14 +438,22 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		}
 
 		paramName := param.Value.Name
-		inputProps[paramName] = pschema.PropertySpec{
+		sdkName := ToSdkName(paramName)
+
+		if sdkName != paramName {
+			addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+			addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
+			addNameOverride(paramName, sdkName, o.pathParamNameMap)
+		}
+
+		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
 		}
-		requiredInputs.Add(paramName)
+		requiredInputs.Add(sdkName)
 	}
 
-	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
 	if err != nil {
 		return nil, errors.Wrap(err, "generating property type spec for response schema")
 	}
@@ -643,7 +485,10 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		mod:               module,
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -654,14 +499,22 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		}
 
 		paramName := param.Value.Name
-		inputProps[paramName] = pschema.PropertySpec{
+		sdkName := ToSdkName(paramName)
+
+		if sdkName != paramName {
+			addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+			addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
+			addNameOverride(paramName, sdkName, o.pathParamNameMap)
+		}
+
+		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
 		}
-		requiredInputs.Add(paramName)
+		requiredInputs.Add(sdkName)
 	}
 
-	outputPropType, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
+	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
 	if err != nil {
 		panic(err)
 	}
@@ -687,71 +540,91 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 // adds it to the Pulumi schema spec.
 func (o *OpenAPIContext) gatherResource(
 	apiPath string,
+	resourceName string,
 	resourceRequestType openapi3.Schema,
 	resourceResponseType *openapi3.Schema,
 	pathParams openapi3.Parameters,
 	module string) error {
-	var resourceTypeToken *string
-	var err error
+
+	addRequiredPathParams := func(typeToken string) {
+		resourceSpec := o.Pkg.Resources[typeToken]
+
+		// If this endpoint path has path parameters,
+		// then those should be required inputs too.
+		for _, param := range pathParams {
+			if param.Value.In != parameterLocationPath {
+				continue
+			}
+
+			paramName := param.Value.Name
+			sdkName := ToSdkName(paramName)
+
+			if sdkName != paramName {
+				addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+				addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
+				addNameOverride(paramName, sdkName, o.pathParamNameMap)
+			}
+
+			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
+				Description: param.Value.Description,
+				TypeSpec:    pschema.TypeSpec{Type: "string"},
+			}
+		}
+
+		o.Pkg.Resources[typeToken] = resourceSpec
+	}
 
 	if resourceRequestType.Discriminator != nil {
-		for _, mappingRef := range resourceRequestType.Discriminator.Mapping {
+		for discriminatedValue, mappingRef := range resourceRequestType.Discriminator.Mapping {
 			schemaName := strings.TrimPrefix(mappingRef, componentsSchemaRefPrefix)
 			typeSchema, ok := o.Doc.Components.Schemas[schemaName]
 			if !ok {
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			ensureRequestSchemaTitle(schemaName, typeSchema)
-			resourceTypeToken, err = o.gatherResourceProperties(*typeSchema.Value, resourceResponseType, apiPath, module)
+			discriminatedResourceName := resourceName + ToPascalCase(discriminatedValue)
+			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
+
+			if err != nil {
+				return errors.Wrapf(err, "gathering resource from api path %s", apiPath)
+			}
+
+			addRequiredPathParams(*resourceTypeToken)
 		}
-	} else {
-		resourceTypeToken, err = o.gatherResourceProperties(resourceRequestType, resourceResponseType, apiPath, module)
+
+		return nil
 	}
+
+	resourceTypeToken, err := o.gatherResourceProperties(resourceName, resourceRequestType, resourceResponseType, apiPath, module)
 
 	if err != nil {
 		return errors.Wrapf(err, "gathering resource from api path %s", apiPath)
 	}
 
-	resourceSpec := o.Pkg.Resources[*resourceTypeToken]
-	requiredInputs := codegen.NewStringSet(resourceSpec.RequiredInputs...)
-
-	// If this endpoint path has path parameters,
-	// then those should be required inputs too.
-	for _, param := range pathParams {
-		if param.Value.In != parameterLocationPath {
-			continue
-		}
-
-		paramName := param.Value.Name
-		resourceSpec.InputProperties[paramName] = pschema.PropertySpec{
-			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: "string"},
-		}
-		requiredInputs.Add(paramName)
-	}
-
-	o.Pkg.Resources[*resourceTypeToken] = resourceSpec
+	addRequiredPathParams(*resourceTypeToken)
 
 	return nil
 }
 
 // gatherResourceProperties generates a resource spec's input and output properties
 // based on its API schema. Returns the Pulumi type token for the newly-added resource.
-func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Schema, responseBodySchema *openapi3.Schema, apiPath, module string) (*string, error) {
+func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBodySchema openapi3.Schema, responseBodySchema *openapi3.Schema, apiPath, module string) (*string, error) {
 	pkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
-		resourceName:      requestBodySchema.Title,
+		resourceName:      resourceName,
 		openapiComponents: *o.Doc.Components,
-		visitedTypes:      codegen.NewStringSet(),
+		visitedTypes:      o.visitedTypes,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
+		pathParamMap:      o.pathParamNameMap,
 	}
 
 	inputProperties := make(map[string]pschema.PropertySpec)
 	properties := make(map[string]pschema.PropertySpec)
 	requiredInputs := codegen.NewStringSet()
 	requiredOutputs := codegen.NewStringSet()
-	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, requestBodySchema.Title)
+	typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 
 	for propName, prop := range requestBodySchema.Properties {
 		var propSpec pschema.PropertySpec
@@ -764,7 +637,7 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 				// properties schema or have a type ref. Either way,
 				// the `propertyTypeSpec` method will take care of it.
 				for _, v := range prop.Value.Properties {
-					typeSpec, err := pkgCtx.propertyTypeSpec(propName, *v)
+					typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
 					if err != nil {
 						return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
 					}
@@ -783,9 +656,15 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 		}
 
+		sdkName := ToSdkName(propName)
+		if sdkName != propName {
+			addNameOverride(sdkName, propName, o.sdkToAPINameMap)
+			addNameOverride(propName, sdkName, o.apiToSDKNameMap)
+		}
+
 		// Skip read-only properties and `id` properties as direct inputs for resources.
-		if !prop.Value.ReadOnly && propName != "id" {
-			inputProperties[propName] = propSpec
+		if !prop.Value.ReadOnly && sdkName != "id" {
+			inputProperties[sdkName] = propSpec
 		}
 
 		// - All input properties must also be available as output
@@ -793,8 +672,8 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		// - Don't add `id` to the output properties since Pulumi
 		// automatically adds that via `CustomResource` which
 		// is what all resources in the SDK will extend.
-		if propName != "id" {
-			properties[propName] = propSpec
+		if sdkName != "id" {
+			properties[sdkName] = propSpec
 		}
 	}
 
@@ -810,7 +689,7 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 					// properties schema or have a type ref. Either way,
 					// the `propertyTypeSpec` method will take care of it.
 					for _, v := range prop.Value.Properties {
-						typeSpec, err := pkgCtx.propertyTypeSpec(propName, *v)
+						typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
 						if err != nil {
 							return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
 						}
@@ -829,11 +708,17 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
 			}
 
+			sdkName := ToSdkName(propName)
+			if sdkName != propName {
+				addNameOverride(sdkName, propName, o.sdkToAPINameMap)
+				addNameOverride(propName, sdkName, o.apiToSDKNameMap)
+			}
+
 			// Don't add `id` to the output properties since Pulumi
 			// automatically adds that via `CustomResource` which
 			// is what all resources in the SDK will extend.
-			if propName != "id" {
-				properties[propName] = propSpec
+			if sdkName != "id" {
+				properties[sdkName] = propSpec
 			}
 		}
 	}
@@ -846,9 +731,12 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		// If the required property's schema is not found,
 		// it's likely that the OpenAPI doc lists the
 		// required props that belong to some referenced
-		// type. So ignore this.
+		// type that's accidentally listed in the top-level
+		// required properties. The referenced type would
+		// (or should) have this property already,
+		// so ignore it.
 		if propSchema == nil {
-			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, requestBodySchema.Title)
+			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, resourceName)
 			continue
 		}
 
@@ -867,7 +755,13 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 			continue
 		}
 
-		requiredInputs.Add(requiredProp)
+		sdkName := ToSdkName(requiredProp)
+		if sdkName != requiredProp {
+			addNameOverride(sdkName, requiredProp, o.sdkToAPINameMap)
+			addNameOverride(requiredProp, sdkName, o.apiToSDKNameMap)
+		}
+
+		requiredInputs.Add(sdkName)
 	}
 
 	// Create a set of required outputs.
@@ -876,8 +770,13 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	// properties in the OpenAPI spec could all be marked as
 	// read-only in which case, they wouldn't have been
 	// added to the `requiredInputs` set.
-	for _, required := range requestBodySchema.Required {
-		requiredOutputs.Add(required)
+	for _, requiredProp := range requestBodySchema.Required {
+		sdkName := ToSdkName(requiredProp)
+		if sdkName != requiredProp {
+			addNameOverride(sdkName, requiredProp, o.sdkToAPINameMap)
+			addNameOverride(requiredProp, sdkName, o.apiToSDKNameMap)
+		}
+		requiredOutputs.Add(sdkName)
 	}
 	// If there is a response body schema, then add its required
 	// properties as well.
@@ -888,16 +787,20 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	}
 
 	if len(requestBodySchema.AllOf) > 0 {
-		parentName := ToPascalCase(requestBodySchema.Title)
+		parentName := ToPascalCase(resourceName)
 		var types []pschema.TypeSpec
+		newlyAddedTypes := codegen.NewStringSet()
 		for _, schemaRef := range requestBodySchema.AllOf {
-			if schemaRef == nil || schemaRef.Value == nil || schemaRef.Value.Type != "object" {
+			if schemaRef == nil || (schemaRef.Value.Type != "object" && len(schemaRef.Value.AllOf) == 0) {
 				continue
 			}
 
-			typ, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
+			typ, newlyAddedType, err := pkgCtx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
-				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", requestBodySchema.Title)
+				return nil, errors.Wrapf(err, "generating property type spec from allOf schema for %s", resourceName)
+			}
+			if newlyAddedType {
+				newlyAddedTypes.Add(typ.Ref)
 			}
 			types = append(types, *typ)
 		}
@@ -905,47 +808,31 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 		// Now that all of the types have been added to schema's Types,
 		// gather all of their properties and smash them together into
 		// a new type and get rid of those top-level ones.
-		typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentName)
 		for _, t := range types {
 			refTypeTok := strings.TrimPrefix(t.Ref, "#/types/")
 			refType := pkgCtx.pkg.Types[refTypeTok]
 
 			for name, propSpec := range refType.Properties {
+				if name == "id" {
+					continue
+				}
+
 				inputProperties[name] = propSpec
 				properties[name] = propSpec
 			}
 
 			for _, r := range refType.Required {
-				if requiredInputs.Has(r) {
+				if requiredInputs.Has(r) || r == "id" {
 					continue
 				}
 				requiredInputs.Add(r)
 			}
 
-			pkgCtx.visitedTypes.Delete(refTypeTok)
-			delete(pkgCtx.pkg.Types, refTypeTok)
-		}
-
-		if existing, ok := o.resourceCRUDMap[typeToken]; ok {
-			existing.C = &apiPath
-		} else {
-			o.resourceCRUDMap[typeToken] = &CRUDOperationsMap{
-				C: &apiPath,
+			if newlyAddedTypes.Has(t.Ref) {
+				pkgCtx.visitedTypes.Delete(refTypeTok)
+				delete(pkgCtx.pkg.Types, refTypeTok)
 			}
 		}
-
-		o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
-			ObjectTypeSpec: pschema.ObjectTypeSpec{
-				Description: requestBodySchema.Description,
-				Type:        "object",
-				Properties:  properties,
-				Required:    requiredOutputs.SortedValues(),
-			},
-			InputProperties: inputProperties,
-			RequiredInputs:  requiredInputs.SortedValues(),
-		}
-
-		return &typeToken, nil
 	}
 
 	if existing, ok := o.resourceCRUDMap[typeToken]; ok {
@@ -970,9 +857,9 @@ func (o *OpenAPIContext) gatherResourceProperties(requestBodySchema openapi3.Sch
 	return &typeToken, nil
 }
 
-// genPropertySpec returns a property spec from an schema ref.
-// The type spec of the returned property spec can be any of the
-// supported types in Pulumi, including ref's to other types
+// genPropertySpec returns a property spec from a schema ref.
+// The type spec of the returned property spec can be any of
+// the supported types in Pulumi, including ref's to other types
 // within the schema. In the case of ref's to other types, those
 // other types are automatically added to the Pulumi schema spec's
 // `Types` property.
@@ -980,21 +867,23 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	propertySpec := pschema.PropertySpec{
 		Description: p.Value.Description,
 	}
-	if p.Value.Default != nil {
+
+	if p.Value.Default != nil && p.Value.Type != openapi3.TypeArray {
 		propertySpec.Default = p.Value.Default
 	}
+
 	languageName := strings.ToUpper(propName[:1]) + propName[1:]
 	if languageName == ctx.resourceName {
-		// .NET does not allow properties to be the same as the enclosing class - so special case these
+		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		propertySpec.Language = map[string]pschema.RawMessage{
 			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: languageName + "Value",
 			}),
 		}
-	}
-	// JSONSchema type includes `$ref` and `$schema` properties, and $ is an invalid character in
-	// the generated names. Replace them with `Ref` and `Schema`.
-	if strings.HasPrefix(propName, "$") {
+	} else if strings.HasPrefix(propName, "$") {
+		// JSONSchema type includes `$ref` and `$schema` properties,
+		// and $ is an invalid character in the generated names.
+		// Replace them with `Ref` and `Schema`.
 		propertySpec.Language = map[string]pschema.RawMessage{
 			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
@@ -1002,7 +891,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		}
 	}
 
-	typeSpec, err := ctx.propertyTypeSpec(propName, p)
+	typeSpec, _, err := ctx.propertyTypeSpec(propName, p)
 	if err != nil {
 		contract.Failf("Failed to generate type spec (resource: %s, prop %s): %v", ctx.resourceName, propName, err)
 	}
@@ -1012,25 +901,47 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	return propertySpec
 }
 
-// propertyTypeSpec converts an API schema to a Pulumi property type spec.
-func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, error) {
+// propertyTypeSpec returns a Pulumi property type spec and
+// a flag that indicates if the type ref was previously
+// encountered.
+func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, bool, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
-	if propSchema.Ref != "" && propSchema.Value.Type != arrayType && len(propSchema.Value.Enum) == 0 {
+	if propSchema.Ref != "" && propSchema.Value.Type != openapi3.TypeArray && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
-		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
-		if !ok {
-			return nil, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
+		if schemaName == "sql_mode" {
+			glog.Info("")
 		}
 
-		if !ctx.visitedTypes.Has(tok) {
+		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
+		if !ok {
+			return nil, false, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
+		}
+
+		// If the ref is for a simple property type, just
+		// return a TypeSpec for that type.
+		// Properties can refer to reusable schema types
+		// which are actually just simple types.
+		if typeSchema.Value.Type != openapi3.TypeObject &&
+			len(typeSchema.Value.Properties) == 0 &&
+			len(typeSchema.Value.AllOf) == 0 {
+			return &pschema.TypeSpec{
+				Type: typeSchema.Value.Type,
+			}, false, nil
+		}
+
+		newType := !ctx.visitedTypes.Has(tok)
+
+		if newType {
 			ctx.visitedTypes.Add(tok)
+
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
+
 			if err != nil {
-				return nil, errors.Wrapf(err, "generating properties for %s", typName)
+				return nil, false, errors.Wrapf(err, "generating properties for %s", typName)
 			}
 
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
@@ -1044,7 +955,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}
 
 		referencedTypeName := fmt.Sprintf("#/types/%s", tok)
-		return &pschema.TypeSpec{Ref: referencedTypeName}, nil
+		return &pschema.TypeSpec{Ref: referencedTypeName}, newType, nil
 	}
 
 	// Inline properties.
@@ -1053,7 +964,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 		specs, requiredSpecs, err := ctx.genProperties(typName, *propSchema.Value)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
@@ -1065,16 +976,16 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			},
 		}
 		referencedTypeName := fmt.Sprintf("#/types/%s", tok)
-		return &pschema.TypeSpec{Ref: referencedTypeName}, nil
+		return &pschema.TypeSpec{Ref: referencedTypeName}, true, nil
 	}
 
 	// Union types.
 	if len(propSchema.Value.OneOf) > 0 {
 		var types []pschema.TypeSpec
 		for _, schemaRef := range propSchema.Value.OneOf {
-			typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
+			typ, _, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			types = append(types, *typ)
 		}
@@ -1102,13 +1013,13 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		return &pschema.TypeSpec{
 			OneOf:         types,
 			Discriminator: discriminator,
-		}, nil
+		}, true, nil
 	}
 
 	if len(propSchema.Value.AllOf) > 0 {
 		properties, requiredPropSpecs, err := ctx.genPropertiesFromAllOf(parentName, propSchema.Value.AllOf)
 		if err != nil {
-			return nil, errors.Wrap(err, "generating properties from allOf schema definition")
+			return nil, false, errors.Wrap(err, "generating properties from allOf schema definition")
 		}
 
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, ToPascalCase(parentName))
@@ -1123,43 +1034,44 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 		return &pschema.TypeSpec{
 			Ref: fmt.Sprintf("#/types/%s", tok),
-		}, nil
+		}, true, nil
 	}
 
 	if len(propSchema.Value.Enum) > 0 {
 		enum, err := ctx.genEnumType(parentName, *propSchema.Value)
 		if err != nil {
-			return nil, errors.Wrapf(err, "generating enum for %s", parentName)
+			return nil, false, errors.Wrapf(err, "generating enum for %s", parentName)
 		}
+
 		if enum != nil {
-			return enum, nil
+			return enum, true, nil
 		}
 	}
 
 	// All other types.
 	switch propSchema.Value.Type {
 	case openapi3.TypeInteger:
-		return &pschema.TypeSpec{Type: "integer"}, nil
+		return &pschema.TypeSpec{Type: "integer"}, false, nil
 	case openapi3.TypeString:
-		return &pschema.TypeSpec{Type: "string"}, nil
+		return &pschema.TypeSpec{Type: "string"}, false, nil
 	case openapi3.TypeBoolean:
-		return &pschema.TypeSpec{Type: "boolean"}, nil
+		return &pschema.TypeSpec{Type: "boolean"}, false, nil
 	case openapi3.TypeNumber:
-		return &pschema.TypeSpec{Type: "number"}, nil
+		return &pschema.TypeSpec{Type: "number"}, false, nil
 	case openapi3.TypeObject:
-		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, nil
+		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
 	case openapi3.TypeArray:
-		elementType, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
+		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
-			return nil, err
+			return nil, false, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
 		}
 		return &pschema.TypeSpec{
-			Type:  arrayType,
+			Type:  openapi3.TypeArray,
 			Items: elementType,
-		}, nil
+		}, true, nil
 	}
 
-	return nil, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
+	return nil, false, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
 }
 
 // genProperties returns a map of the property names and their corresponding
@@ -1172,6 +1084,11 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
 
+		if sdkName != name {
+			addNameOverride(sdkName, name, ctx.sdkToAPINameMap)
+			addNameOverride(name, sdkName, ctx.apiToSDKNameMap)
+		}
+
 		var typeSpec *pschema.TypeSpec
 		var err error
 
@@ -1183,7 +1100,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 				// properties schema or have a type ref. Either way,
 				// the `propertyTypeSpec` method will take care of it.
 				for _, v := range value.Value.Properties {
-					addlPropsTypeSpec, err := ctx.propertyTypeSpec(sdkName, *v)
+					addlPropsTypeSpec, _, err := ctx.propertyTypeSpec(sdkName, *v)
 					if err != nil {
 						return nil, nil, errors.Wrapf(err, "generating additional properties type spec for %s (parentName: %s)", sdkName, parentName)
 					}
@@ -1194,13 +1111,13 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 					}
 				}
 			} else {
-				typeSpec, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
+				typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
 				if err != nil {
 					return nil, nil, errors.Wrapf(err, "property %s", name)
 				}
 			}
 		} else {
-			typeSpec, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
+			typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
 			if err != nil {
 				return nil, nil, errors.Wrapf(err, "property %s", name)
 			}
@@ -1211,10 +1128,19 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 			TypeSpec:    *typeSpec,
 		}
 
+		// .NET does not allow properties to be the same as the enclosing class - so special case these.
+		if ToPascalCase(sdkName) == parentName {
+			propertySpec.Language = map[string]pschema.RawMessage{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+					Name: ToPascalCase(sdkName) + "Value",
+				}),
+			}
+		}
+
 		// Don't set default values for array-type properties
 		// since Pulumi doesn't support it and also it isn't
 		// very helpful anyway for arrays.
-		if value.Value.Default != nil && value.Value.Type != arrayType {
+		if value.Value.Default != nil && value.Value.Type != openapi3.TypeArray {
 			propertySpec.Default = value.Value.Default
 		}
 
@@ -1223,6 +1149,10 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 
 	for _, name := range typeSchema.Required {
 		sdkName := ToSdkName(name)
+		if sdkName != name {
+			addNameOverride(sdkName, name, ctx.sdkToAPINameMap)
+			addNameOverride(name, sdkName, ctx.apiToSDKNameMap)
+		}
 		if _, has := specs[sdkName]; has {
 			requiredSpecs.Add(sdkName)
 		}
@@ -1239,16 +1169,23 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 // property type spec gathered from a type's allOf schema.
 func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf openapi3.SchemaRefs) (map[string]pschema.PropertySpec, codegen.StringSet, error) {
 	var types []pschema.TypeSpec
+	newlyAddedTypes := codegen.NewStringSet()
+
 	for _, schemaRef := range allOf {
 		if schemaRef.Ref == "" && schemaRef.Value.Type != "object" {
 			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
 			continue
 		}
 
-		typ, err := ctx.propertyTypeSpec(parentName, *schemaRef)
+		typ, newlyAddedType, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
 			return nil, nil, err
 		}
+
+		if newlyAddedType {
+			newlyAddedTypes.Add(typ.Ref)
+		}
+
 		types = append(types, *typ)
 	}
 
@@ -1272,8 +1209,12 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 			requiredSpecs.Add(r)
 		}
 
-		ctx.visitedTypes.Delete(refTypeTok)
-		delete(ctx.pkg.Types, refTypeTok)
+		// Only delete type refs newly added from this
+		// allOf definition.
+		if newlyAddedTypes.Has(t.Ref) {
+			ctx.visitedTypes.Delete(refTypeTok)
+			delete(ctx.pkg.Types, refTypeTok)
+		}
 	}
 
 	return properties, requiredSpecs, nil

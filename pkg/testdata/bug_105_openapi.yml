@@ -1,0 +1,378 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    droplet_action:
+      required:
+        - type
+      type: object
+      description: Specifies the action that will be taken on the Droplet.
+      properties:
+        type:
+          type: string
+          enum:
+            - enable_backups
+            - disable_backups
+            - reboot
+            - power_cycle
+            - shutdown
+            - power_off
+            - power_on
+            - restore
+            - password_reset
+            - resize
+            - rebuild
+            - rename
+            - change_kernel
+            - enable_ipv6
+            - snapshot
+          example: reboot
+          description: The type of action to initiate for the Droplet.
+    droplet_action_restore:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            image:
+              type: integer
+              example: 12389723
+              description: >-
+                The ID of a backup of the current Droplet instance to restore
+                from.
+    droplet_action_resize:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            disk:
+              type: boolean
+              example: true
+              description: >-
+                When `true`, the Droplet's disk will be resized in addition to
+                its RAM and CPU. This is a permanent change and cannot be
+                reversed as a Droplet's disk size cannot be decreased.
+            size:
+              type: string
+              example: s-2vcpu-2gb
+              description: >-
+                The slug identifier for the size to which you wish to resize the
+                Droplet.
+    droplet_action_rebuild:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            image:
+              oneOf:
+                - type: string
+                - type: integer
+              example: ubuntu-20-04-x64
+              description: >-
+                The image ID of a public or private image or the slug identifier
+                for a public image. The Droplet will be rebuilt using this image
+                as its base.
+    droplet_action_rename:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            name:
+              type: string
+              example: nifty-new-name
+              description: The new name for the Droplet.
+    droplet_action_change_kernel:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            kernel:
+              type: integer
+              example: 12389723
+              description: >-
+                A unique number used to identify and reference a specific
+                kernel.
+    droplet_action_snapshot:
+      allOf:
+        - $ref: "#/components/schemas/droplet_action"
+        - type: object
+          properties:
+            name:
+              type: string
+              example: Nifty New Snapshot
+              description: The name to give the new snapshot of the Droplet.
+    region:
+      type: object
+      properties:
+        name:
+          type: string
+          description: >-
+            The display name of the region.  This will be a full name that is
+            used in the control panel and other interfaces.
+          example: New York 3
+        slug:
+          type: string
+          description: >-
+            A human-readable string that is used as a unique identifier for each
+            region.
+          example: nyc3
+        features:
+          type: array
+          items:
+            type: string
+          description: >-
+            This attribute is set to an array which contains features available
+            in this region
+          example:
+            - private_networking
+            - backups
+            - ipv6
+            - metadata
+            - install_agent
+            - storage
+            - image_transfer
+        available:
+          type: boolean
+          description: >-
+            This is a boolean value that represents whether new Droplets can be
+            created in this region.
+          example: true
+        sizes:
+          type: array
+          items:
+            type: string
+          description: >-
+            This attribute is set to an array which contains the identifying
+            slugs for the sizes available in this region.
+          example:
+            - s-1vcpu-1gb
+            - s-1vcpu-2gb
+            - s-1vcpu-3gb
+            - s-2vcpu-2gb
+            - s-3vcpu-1gb
+            - s-2vcpu-4gb
+            - s-4vcpu-8gb
+            - s-6vcpu-16gb
+            - s-8vcpu-32gb
+            - s-12vcpu-48gb
+            - s-16vcpu-64gb
+            - s-20vcpu-96gb
+            - s-24vcpu-128gb
+            - s-32vcpu-192g
+      required:
+        - available
+        - features
+        - name
+        - sizes
+        - slug
+    slug:
+      type: string
+      description: >-
+        A human-readable string that is used as a unique identifier for each
+        region.
+      example: nyc3
+    action:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: >-
+            A unique numeric ID that can be used to identify and reference an
+            action.
+          example: 36804636
+        status:
+          type: string
+          description: >-
+            The current status of the action. This can be "in-progress",
+            "completed", or "errored".
+          enum:
+            - in-progress
+            - completed
+            - errored
+          example: completed
+          default: in-progress
+        type:
+          type: string
+          description: >-
+            This is the type of action that the object represents. For example,
+            this could be "transfer" to represent the state of an image transfer
+            action.
+          example: create
+        started_at:
+          type: string
+          format: date-time
+          description: >-
+            A time value given in ISO8601 combined date and time format that
+            represents when the action was initiated.
+          example: "2020-11-14T16:29:21Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            A time value given in ISO8601 combined date and time format that
+            represents when the action was completed.
+          example: "2020-11-14T16:30:06Z"
+        resource_id:
+          type: integer
+          nullable: true
+          description: >-
+            A unique identifier for the resource that the action is associated
+            with.
+          example: 3164444
+        resource_type:
+          type: string
+          description: The type of resource that the action is associated with.
+          example: droplet
+        region:
+          $ref: "#/components/schemas/region"
+        region_slug:
+          $ref: "#/components/schemas/slug"
+
+  parameters:
+    per_page:
+      in: query
+      name: per_page
+      required: false
+      description: Number of items returned per page
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+        maximum: 200
+      example: 2
+    page:
+      in: query
+      name: page
+      required: false
+      description: Which 'page' of paginated results to return.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+    droplet_id:
+      in: path
+      name: droplet_id
+      description: A unique identifier for a Droplet instance.
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      example: 3164444
+    droplet_tag_name:
+      in: query
+      name: tag_name
+      description: >-
+        Used to filter Droplets by a specific tag. Can not be combined with
+        `name`.
+      required: false
+      schema:
+        type: string
+      example: env:prod
+
+  responses:
+    droplet_action:
+      description: The response will be a JSON object with a key called `action`.
+      content:
+        application/json:
+          schema:
+            properties:
+              action:
+                $ref: "#/components/schemas/action"
+    droplet_actions_response:
+      description: The response will be a JSON object with a key called `actions`.
+      content:
+        application/json:
+          schema:
+            properties:
+              actions:
+                type: array
+                items:
+                  $ref: "#/components/schemas/action"
+
+paths:
+  /v2/droplets/{droplet_id}/actions:
+    post:
+      operationId: dropletActions_post
+      parameters:
+        - $ref: "#/components/parameters/droplet_id"
+      requestBody:
+        description: >
+          The `type` attribute set in the request body will specify the  action
+          that
+
+          will be taken on the Droplet. Some actions will require additional
+
+          attributes to be set as well.
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - $ref: "#/components/schemas/droplet_action"
+                - $ref: "#/components/schemas/droplet_action_restore"
+                - $ref: "#/components/schemas/droplet_action_resize"
+                - $ref: "#/components/schemas/droplet_action_rebuild"
+                - $ref: "#/components/schemas/droplet_action_rename"
+                - $ref: "#/components/schemas/droplet_action_change_kernel"
+                - $ref: "#/components/schemas/droplet_action_snapshot"
+              discriminator:
+                propertyName: type
+                mapping:
+                  enable_backups: "#/components/schemas/droplet_action"
+                  disable_backups: "#/components/schemas/droplet_action"
+                  reboot: "#/components/schemas/droplet_action"
+                  power_cycle: "#/components/schemas/droplet_action"
+                  shutdown: "#/components/schemas/droplet_action"
+                  power_off: "#/components/schemas/droplet_action"
+                  power_on: "#/components/schemas/droplet_action"
+                  password_reset: "#/components/schemas/droplet_action"
+                  restore: "#/components/schemas/droplet_action_restore"
+                  resize: "#/components/schemas/droplet_action_resize"
+                  rebuild: "#/components/schemas/droplet_action_rebuild"
+                  rename: "#/components/schemas/droplet_action_rename"
+                  change_kernel: "#/components/schemas/droplet_action_change_kernel"
+                  enable_ipv6: "#/components/schemas/droplet_action"
+                  snapshot: "#/components/schemas/droplet_action_snapshot"
+      responses:
+        "201":
+          $ref: "#/components/responses/droplet_action"
+
+  /v2/droplets/actions:
+    post:
+      operationId: dropletActions_post_byTag
+      parameters:
+        - $ref: "#/components/parameters/droplet_tag_name"
+      requestBody:
+        description: >
+          The `type` attribute set in the request body will specify the  action
+          that
+
+          will be taken on the Droplet. Some actions will require additional
+
+          attributes to be set as well.
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/droplet_action"
+                - $ref: "#/components/schemas/droplet_action_snapshot"
+              discriminator:
+                propertyName: type
+                mapping:
+                  enable_backups: "#/components/schemas/droplet_action"
+                  disable_backups: "#/components/schemas/droplet_action"
+                  power_cycle: "#/components/schemas/droplet_action"
+                  shutdown: "#/components/schemas/droplet_action"
+                  power_off: "#/components/schemas/droplet_action"
+                  power_on: "#/components/schemas/droplet_action"
+                  enable_ipv6: "#/components/schemas/droplet_action"
+                  snapshot: "#/components/schemas/droplet_action_snapshot"
+      responses:
+        "201":
+          $ref: "#/components/responses/droplet_actions_response"

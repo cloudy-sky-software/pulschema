@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    meta:
+      type: object
+      properties:
+        some_prop:
+          type: string
+          description: I am a string prop
+
+  responses:
+    list_response:
+      description: >-
+        The response will be a JSON object that contains the following
+        attributes
+      content:
+        application/json:
+          schema:
+            allOf:
+              - type: object
+                properties:
+                  array_prop:
+                    description: An array of strings prop
+                    type: array
+                    items:
+                      type: string
+              - $ref: "#/components/schemas/meta"
+    get_response:
+      description: >-
+        The response will be a JSON object that contains the following
+        attributes
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/meta"
+
+paths:
+  /resources:
+    get:
+      operationId: list_resources
+      responses:
+        "200":
+          $ref: "#/components/responses/list_response"
+  /resources/{id}:
+    get:
+      operationId: get_resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/get_response"
