@@ -3,6 +3,7 @@
 package pkg
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -12,19 +13,10 @@ var numbersRegexp = regexp.MustCompile("[0-9]+[_]*[a-zA-Z]+")
 // ToSdkName converts a property or attribute name to the lowerCamelCase convention that
 // is used in Pulumi schema's properties.
 func ToSdkName(s string) string {
-	if r := rune(s[0]); r >= 'A' && r <= 'Z' {
-		s = strings.ToLower(string(r)) + s[1:]
+	if startsWithNumber(s) {
+		return "_" + toCamelInitCase(s, false)
 	}
-	return s
-}
-
-func snakeCaseToCamelCase(s string) string {
-	parts := strings.Split(s, "_")
-	for i, p := range parts[1:] {
-		parts[i+1] = ToPascalCase(p)
-	}
-
-	return strings.Join(parts, "")
+	return toCamelInitCase(s, false)
 }
 
 func startsWithNumber(s string) bool {
@@ -77,4 +69,14 @@ func toCamelInitCase(s string, initCase bool) string {
 		}
 	}
 	return n
+}
+
+func addNameOverride(key, value string, m map[string]string) {
+	if v, ok := m[key]; ok && value != v {
+		panic(fmt.Errorf(
+			"mapping for %s already exists and has a value %s but a new mapping with value %s was requested",
+			key, v, value))
+	}
+
+	m[key] = value
 }
