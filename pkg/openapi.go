@@ -409,6 +409,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		ResourceCRUDMap:  o.resourceCRUDMap,
 		AutoNameMap:      o.autoNameMap,
 		SDKToAPINameMap:  o.sdkToAPINameMap,
+		APIToSDKNameMap:  o.apiToSDKNameMap,
 		PathParamNameMap: o.pathParamNameMap,
 	}, o.Doc, nil
 }
