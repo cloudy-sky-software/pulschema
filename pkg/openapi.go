@@ -70,13 +70,15 @@ type OpenAPIContext struct {
 	// and the property that can be auto-named.
 	autoNameMap  map[string]string
 	visitedTypes codegen.StringSet
-	// sdkToApiNameMap is a map of Pulumi type tokens whose
+	// sdkToAPINameMap is a map of Pulumi type tokens whose
 	// property names have been overridden to be camelCase
 	// instead of the name used by the provider API.
 	// Providers must consult this map in order to map
 	// SDK names to their proper API names before calling
 	// the provider API.
-	sdkToApiNameMap map[string]string
+	sdkToAPINameMap map[string]string
+	// apiToSDKNameMap is the inverse of sdkToAPINameMap.
+	apiToSDKNameMap map[string]string
 	// pathParamNameMap holds the original path param name
 	// to the SDK name used in the Pulumi schema. This can
 	// be used by providers to look-up the value for a path
@@ -108,7 +110,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
 	o.visitedTypes = codegen.NewStringSet()
-	o.sdkToApiNameMap = make(map[string]string)
+	o.sdkToAPINameMap = make(map[string]string)
+	o.apiToSDKNameMap = make(map[string]string)
 	o.pathParamNameMap = make(map[string]string)
 
 	for _, path := range o.Doc.Paths.InMatchingOrder() {
@@ -405,7 +408,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	return &ProviderMetadata{
 		ResourceCRUDMap:  o.resourceCRUDMap,
 		AutoNameMap:      o.autoNameMap,
-		SdkToApiNameMap:  o.sdkToApiNameMap,
+		SDKToAPINameMap:  o.sdkToAPINameMap,
 		PathParamNameMap: o.pathParamNameMap,
 	}, o.Doc, nil
 }
@@ -421,7 +424,8 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		sdkToApiNameMap:   o.sdkToApiNameMap,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
 		pathParamMap:      o.pathParamNameMap,
 	}
 
@@ -436,7 +440,8 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		sdkName := ToSdkName(paramName)
 
 		if sdkName != paramName {
-			addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+			addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+			addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
 			addNameOverride(paramName, sdkName, o.pathParamNameMap)
 		}
 
@@ -480,7 +485,8 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		pkg:               o.Pkg,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		sdkToApiNameMap:   o.sdkToApiNameMap,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
 		pathParamMap:      o.pathParamNameMap,
 	}
 
@@ -495,7 +501,8 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		sdkName := ToSdkName(paramName)
 
 		if sdkName != paramName {
-			addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+			addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+			addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
 			addNameOverride(paramName, sdkName, o.pathParamNameMap)
 		}
 
@@ -552,7 +559,8 @@ func (o *OpenAPIContext) gatherResource(
 			sdkName := ToSdkName(paramName)
 
 			if sdkName != paramName {
-				addNameOverride(sdkName, paramName, o.sdkToApiNameMap)
+				addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
+				addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
 				addNameOverride(paramName, sdkName, o.pathParamNameMap)
 			}
 
@@ -606,7 +614,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		resourceName:      resourceName,
 		openapiComponents: *o.Doc.Components,
 		visitedTypes:      o.visitedTypes,
-		sdkToApiNameMap:   o.sdkToApiNameMap,
+		sdkToAPINameMap:   o.sdkToAPINameMap,
+		apiToSDKNameMap:   o.apiToSDKNameMap,
 		pathParamMap:      o.pathParamNameMap,
 	}
 
@@ -648,7 +657,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 		sdkName := ToSdkName(propName)
 		if sdkName != propName {
-			addNameOverride(sdkName, propName, o.sdkToApiNameMap)
+			addNameOverride(sdkName, propName, o.sdkToAPINameMap)
+			addNameOverride(propName, sdkName, o.apiToSDKNameMap)
 		}
 
 		// Skip read-only properties and `id` properties as direct inputs for resources.
@@ -699,7 +709,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 			sdkName := ToSdkName(propName)
 			if sdkName != propName {
-				addNameOverride(sdkName, propName, o.sdkToApiNameMap)
+				addNameOverride(sdkName, propName, o.sdkToAPINameMap)
+				addNameOverride(propName, sdkName, o.apiToSDKNameMap)
 			}
 
 			// Don't add `id` to the output properties since Pulumi
@@ -745,7 +756,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 		sdkName := ToSdkName(requiredProp)
 		if sdkName != requiredProp {
-			addNameOverride(sdkName, requiredProp, o.sdkToApiNameMap)
+			addNameOverride(sdkName, requiredProp, o.sdkToAPINameMap)
+			addNameOverride(requiredProp, sdkName, o.apiToSDKNameMap)
 		}
 
 		requiredInputs.Add(sdkName)
@@ -760,7 +772,8 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	for _, requiredProp := range requestBodySchema.Required {
 		sdkName := ToSdkName(requiredProp)
 		if sdkName != requiredProp {
-			addNameOverride(sdkName, requiredProp, o.sdkToApiNameMap)
+			addNameOverride(sdkName, requiredProp, o.sdkToAPINameMap)
+			addNameOverride(requiredProp, sdkName, o.apiToSDKNameMap)
 		}
 		requiredOutputs.Add(sdkName)
 	}
@@ -1071,7 +1084,8 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		sdkName := ToSdkName(name)
 
 		if sdkName != name {
-			addNameOverride(sdkName, name, ctx.sdkToApiNameMap)
+			addNameOverride(sdkName, name, ctx.sdkToAPINameMap)
+			addNameOverride(name, sdkName, ctx.apiToSDKNameMap)
 		}
 
 		var typeSpec *pschema.TypeSpec
@@ -1135,7 +1149,8 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	for _, name := range typeSchema.Required {
 		sdkName := ToSdkName(name)
 		if sdkName != name {
-			addNameOverride(sdkName, name, ctx.sdkToApiNameMap)
+			addNameOverride(sdkName, name, ctx.sdkToAPINameMap)
+			addNameOverride(name, sdkName, ctx.apiToSDKNameMap)
 		}
 		if _, has := specs[sdkName]; has {
 			requiredSpecs.Add(sdkName)
