@@ -160,7 +160,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
 			// or a list of resources.
-			if resourceType.Type != openapi3.TypeArray && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+			if !resourceType.Type.Is(openapi3.TypeArray) && !strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				// If there is a discriminator then we should set this operation
 				// as the read endpoint for each of the types in the mapping.
 				if resourceType.Discriminator != nil {
@@ -196,7 +196,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			// Add the API operation as a list* function.
-			if resourceType.Type == openapi3.TypeArray || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
+			if resourceType.Type.Is(openapi3.TypeArray) || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, module, funcName)
@@ -791,7 +791,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		var types []pschema.TypeSpec
 		newlyAddedTypes := codegen.NewStringSet()
 		for _, schemaRef := range requestBodySchema.AllOf {
-			if schemaRef == nil || (schemaRef.Value.Type != "object" && len(schemaRef.Value.AllOf) == 0) {
+			if schemaRef == nil || (!schemaRef.Value.Type.Is(openapi3.TypeObject) && len(schemaRef.Value.AllOf) == 0) {
 				continue
 			}
 
@@ -868,7 +868,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		Description: p.Value.Description,
 	}
 
-	if p.Value.Default != nil && p.Value.Type != openapi3.TypeArray {
+	if p.Value.Default != nil && !p.Value.Type.Is(openapi3.TypeArray) {
 		propertySpec.Default = p.Value.Default
 	}
 
@@ -907,7 +907,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, bool, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
-	if propSchema.Ref != "" && propSchema.Value.Type != openapi3.TypeArray && len(propSchema.Value.Enum) == 0 {
+	if propSchema.Ref != "" && !propSchema.Value.Type.Is(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
@@ -925,11 +925,11 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		// return a TypeSpec for that type.
 		// Properties can refer to reusable schema types
 		// which are actually just simple types.
-		if typeSchema.Value.Type != openapi3.TypeObject &&
+		if !typeSchema.Value.Type.Is(openapi3.TypeObject) &&
 			len(typeSchema.Value.Properties) == 0 &&
 			len(typeSchema.Value.AllOf) == 0 {
 			return &pschema.TypeSpec{
-				Type: typeSchema.Value.Type,
+				Type: typeSchema.Value.Type.Slice()[0],
 			}, false, nil
 		}
 
@@ -1049,18 +1049,18 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	}
 
 	// All other types.
-	switch propSchema.Value.Type {
-	case openapi3.TypeInteger:
+	switch {
+	case propSchema.Value.Type.Is(openapi3.TypeInteger):
 		return &pschema.TypeSpec{Type: "integer"}, false, nil
-	case openapi3.TypeString:
+	case propSchema.Value.Type.Is(openapi3.TypeString):
 		return &pschema.TypeSpec{Type: "string"}, false, nil
-	case openapi3.TypeBoolean:
+	case propSchema.Value.Type.Is(openapi3.TypeBoolean):
 		return &pschema.TypeSpec{Type: "boolean"}, false, nil
-	case openapi3.TypeNumber:
+	case propSchema.Value.Type.Is(openapi3.TypeNumber):
 		return &pschema.TypeSpec{Type: "number"}, false, nil
-	case openapi3.TypeObject:
+	case propSchema.Value.Type.Is(openapi3.TypeObject):
 		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
-	case openapi3.TypeArray:
+	case propSchema.Value.Type.Is(openapi3.TypeArray):
 		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
 			return nil, false, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
@@ -1140,7 +1140,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// Don't set default values for array-type properties
 		// since Pulumi doesn't support it and also it isn't
 		// very helpful anyway for arrays.
-		if value.Value.Default != nil && value.Value.Type != openapi3.TypeArray {
+		if value.Value.Default != nil && !value.Value.Type.Is(openapi3.TypeArray) {
 			propertySpec.Default = value.Value.Default
 		}
 
@@ -1172,7 +1172,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	newlyAddedTypes := codegen.NewStringSet()
 
 	for _, schemaRef := range allOf {
-		if schemaRef.Ref == "" && schemaRef.Value.Type != "object" {
+		if schemaRef.Ref == "" && !schemaRef.Value.Type.Is(openapi3.TypeObject) {
 			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
 			continue
 		}
@@ -1260,7 +1260,7 @@ func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec,
 
 // genEnumType generates the enum type for a given schema.
 func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Schema) (*pschema.TypeSpec, error) {
-	if len(propSchema.Type) == 0 {
+	if len(propSchema.Type.Slice()) == 0 {
 		return nil, nil
 	}
 
@@ -1270,16 +1270,16 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	enumSpec := &pschema.ComplexTypeSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: propSchema.Description,
-			Type:        propSchema.Type,
+			Type:        propSchema.Type.Slice()[0],
 		},
 	}
 
 	var names codegen.StringSet
 
-	switch propSchema.Type {
-	case openapi3.TypeString:
+	switch {
+	case propSchema.Type.Is(openapi3.TypeString):
 		enumSpec.Enum, names = getStringEnumValues(propSchema.Enum)
-	case openapi3.TypeInteger:
+	case propSchema.Type.Is(openapi3.TypeInteger):
 		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
 	default:
 		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
