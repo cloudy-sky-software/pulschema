@@ -1103,7 +1103,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var err error
 
 		if value.Value.AdditionalProperties.Has != nil {
-			allowed := *value.Value.AdditionalProperties.Has
+			allowed := *value.Value.AdditionalProperties.Has && len(value.Value.Properties) > 0
 			if allowed {
 				// There's only ever going to be a single property
 				// in the map, which will either have an inlined
