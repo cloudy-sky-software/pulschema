@@ -1048,19 +1048,24 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}
 	}
 
+	valType := propSchema.Value.Type
+	if valType == nil && len(propSchema.Value.AnyOf) == 1 {
+		valType = propSchema.Value.AnyOf[0].Value.Type
+	}
+
 	// All other types.
 	switch {
-	case propSchema.Value.Type.Is(openapi3.TypeInteger):
+	case valType.Is(openapi3.TypeInteger):
 		return &pschema.TypeSpec{Type: "integer"}, false, nil
-	case propSchema.Value.Type.Is(openapi3.TypeString):
+	case valType.Is(openapi3.TypeString):
 		return &pschema.TypeSpec{Type: "string"}, false, nil
-	case propSchema.Value.Type.Is(openapi3.TypeBoolean):
+	case valType.Is(openapi3.TypeBoolean):
 		return &pschema.TypeSpec{Type: "boolean"}, false, nil
-	case propSchema.Value.Type.Is(openapi3.TypeNumber):
+	case valType.Is(openapi3.TypeNumber):
 		return &pschema.TypeSpec{Type: "number"}, false, nil
-	case propSchema.Value.Type.Is(openapi3.TypeObject):
+	case valType.Is(openapi3.TypeObject):
 		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
-	case propSchema.Value.Type.Is(openapi3.TypeArray):
+	case valType.Is(openapi3.TypeArray):
 		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
 			return nil, false, errors.Wrapf(err, "generating array item type (parentName: %s)", parentName)
@@ -1093,7 +1098,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var err error
 
 		if value.Value.AdditionalProperties.Has != nil {
-			allowed := *value.Value.AdditionalProperties.Has
+			allowed := *value.Value.AdditionalProperties.Has && len(value.Value.Properties) > 0
 			if allowed {
 				// There's only ever going to be a single property
 				// in the map, which will either have an inlined
