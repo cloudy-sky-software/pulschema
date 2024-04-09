@@ -1048,11 +1048,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		}
 	}
 
-	// OpenAI shenanigans.
-	if val, has := propSchema.Value.Extensions["x-oaiTypeLabel"]; has && val == "string" {
-		return &pschema.TypeSpec{Type: "string"}, false, nil
-	}
-
 	valType := propSchema.Value.Type
 	if valType == nil && len(propSchema.Value.AnyOf) == 1 {
 		valType = propSchema.Value.AnyOf[0].Value.Type
