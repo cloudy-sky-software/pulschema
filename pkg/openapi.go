@@ -459,19 +459,23 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		return nil, errors.Wrap(err, "generating property type spec for response schema")
 	}
 
-	actualTypeTok := strings.TrimPrefix(outputPropType.Ref, typesSchemaRefPrefix)
-	tokParts := strings.Split(actualTypeTok, ":")
-	actualTypeName := tokParts[2]
-	if strings.EqualFold(actualTypeName, funcName) {
-		newTypeName := actualTypeName + "Items"
-		outputType := funcPkgCtx.pkg.Types[actualTypeTok]
-		tokParts[2] = newTypeName
-		newTypeTok := strings.Join(tokParts, ":")
-		funcPkgCtx.pkg.Types[newTypeTok] = outputType
+	// Rename the output type if it's the same as the func name.
+	if outputPropType.Ref != "" {
+		actualTypeTok := strings.TrimPrefix(outputPropType.Ref, typesSchemaRefPrefix)
+		tokParts := strings.Split(actualTypeTok, ":")
+		actualTypeName := tokParts[2]
 
-		delete(funcPkgCtx.pkg.Types, actualTypeTok)
+		if strings.EqualFold(actualTypeName, funcName) {
+			newTypeName := actualTypeName + "Items"
+			outputType := funcPkgCtx.pkg.Types[actualTypeTok]
+			tokParts[2] = newTypeName
+			newTypeTok := strings.Join(tokParts, ":")
+			funcPkgCtx.pkg.Types[newTypeTok] = outputType
 
-		outputPropType.Ref = typesSchemaRefPrefix + newTypeTok
+			delete(funcPkgCtx.pkg.Types, actualTypeTok)
+
+			outputPropType.Ref = typesSchemaRefPrefix + newTypeTok
+		}
 	}
 
 	return &pschema.FunctionSpec{
