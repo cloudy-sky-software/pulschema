@@ -76,21 +76,38 @@ components:
                     items:
                       $ref: "#/components/schemas/action"
               - $ref: "#/components/schemas/meta"
+    actions2:
+      description: >-
+        The results will be returned as a JSON object with an actions key.  This
+        will be set to an array filled with action objects containing the
+        standard action attributes
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              actions:
+                type: array
+                items:
+                  $ref: "#/components/schemas/action"
 
 paths:
   /v2/actions:
     get:
       operationId: actions_list
-      summary: List All Actions
-      description: >-
-        This will be the entire list of actions taken on your account, so it
-        will be quite large. As with any large collection returned by the API,
-        the results will be paginated with only 20 on each page by default.
-      tags:
-        - Actions
       parameters:
         - $ref: "#/components/parameters/per_page"
         - $ref: "#/components/parameters/page"
       responses:
         "200":
           $ref: "#/components/responses/actions"
+
+  /v2/actions2:
+    get:
+      operationId: actions2_list
+      parameters:
+        - $ref: "#/components/parameters/per_page"
+        - $ref: "#/components/parameters/page"
+      responses:
+        "200":
+          $ref: "#/components/responses/actions2"
