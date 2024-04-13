@@ -460,6 +460,11 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 	}
 
 	// Rename the output type if it's the same as the func name.
+	// This can happen if the response type schema uses an allOf
+	// definition because there is no single authoritative type
+	// to use as the name of the resulting type, so the resulting
+	// type is named using the parent name, which would be the
+	// function name in this case.
 	if outputPropType.Ref != "" {
 		actualTypeTok := strings.TrimPrefix(outputPropType.Ref, typesSchemaRefPrefix)
 		tokParts := strings.Split(actualTypeTok, ":")
