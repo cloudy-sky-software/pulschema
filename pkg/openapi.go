@@ -23,6 +23,7 @@ import (
 
 const (
 	componentsSchemaRefPrefix = "#/components/schemas/"
+	typesSchemaRefPrefix      = "#/types/"
 	jsonMimeType              = "application/json"
 	parameterLocationPath     = "path"
 	pathSeparator             = "/"
@@ -456,6 +457,30 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
 	if err != nil {
 		return nil, errors.Wrap(err, "generating property type spec for response schema")
+	}
+
+	// Rename the output type if it's the same as the func name.
+	// This can happen if the response type schema uses an allOf
+	// definition because there is no single authoritative type
+	// to use as the name of the resulting type, so the resulting
+	// type is named using the parent name, which would be the
+	// function name in this case.
+	if outputPropType.Ref != "" {
+		actualTypeTok := strings.TrimPrefix(outputPropType.Ref, typesSchemaRefPrefix)
+		tokParts := strings.Split(actualTypeTok, ":")
+		actualTypeName := tokParts[2]
+
+		if strings.EqualFold(actualTypeName, funcName) {
+			newTypeName := actualTypeName + "Items"
+			outputType := funcPkgCtx.pkg.Types[actualTypeTok]
+			tokParts[2] = newTypeName
+			newTypeTok := strings.Join(tokParts, ":")
+			funcPkgCtx.pkg.Types[newTypeTok] = outputType
+
+			delete(funcPkgCtx.pkg.Types, actualTypeTok)
+
+			outputPropType.Ref = typesSchemaRefPrefix + newTypeTok
+		}
 	}
 
 	return &pschema.FunctionSpec{
@@ -912,10 +937,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		typName := ToPascalCase(schemaName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
-		if schemaName == "sql_mode" {
-			glog.Info("")
-		}
-
 		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
 		if !ok {
 			return nil, false, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
@@ -1022,7 +1043,8 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			return nil, false, errors.Wrap(err, "generating properties from allOf schema definition")
 		}
 
-		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, ToPascalCase(parentName))
+		typName := ToPascalCase(parentName)
+		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
