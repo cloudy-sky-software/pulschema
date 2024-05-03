@@ -180,6 +180,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+					// HACK! Use the singular version of the resource name
+					// where the current operation is fetching a single
+					// item instead of a list.
+					resourceName = strings.TrimSuffix(resourceName, "s")
 
 					// The resource needs to be read from the cloud provider API,
 					// so we should map this "read" endpoint for this resource.
@@ -607,7 +611,9 @@ func (o *OpenAPIContext) gatherResource(
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			discriminatedResourceName := resourceName + ToPascalCase(discriminatedValue)
+			// Don't prefix the parent name since this resource
+			// will already be scoped under a module.
+			discriminatedResourceName := ToPascalCase(discriminatedValue)
 			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
 
 			if err != nil {
