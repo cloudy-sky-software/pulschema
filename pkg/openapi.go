@@ -168,12 +168,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						parentResourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 						title := getResourceTitleFromRequestSchema(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+title)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, title)
 						setReadOperationMapping(typeToken)
 
-						funcName := "get" + title
+						funcName := "get" + dResource.Value.Title
 						funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 						getterFuncSpec := o.genGetFunc(*pathItem, *dResource, module, funcName)
 						o.Pkg.Functions[funcTypeToken] = getterFuncSpec
@@ -263,9 +262,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				for _, n := range schemaNames {
 					dResource := o.Doc.Components.Schemas[n]
-					parentResourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
 					resourceName := getResourceTitleFromRequestSchema(n, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setUpdateOperationMapping(typeToken)
 				}
 			} else {
@@ -302,9 +300,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				for _, ref := range resourceType.Discriminator.Mapping {
 					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 					dResource := o.Doc.Components.Schemas[schemaName]
-					parentResourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
 					resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setPutOperationMapping(typeToken)
 				}
 			} else {
@@ -352,9 +349,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						parentResourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 						resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 						setDeleteOperationMapping(typeToken)
 					}
 				} else {
@@ -615,7 +611,9 @@ func (o *OpenAPIContext) gatherResource(
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
-			discriminatedResourceName := resourceName + ToPascalCase(discriminatedValue)
+			// Don't prefix the parent name since this resource
+			// will already be scoped under a module.
+			discriminatedResourceName := ToPascalCase(discriminatedValue)
 			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
 
 			if err != nil {
