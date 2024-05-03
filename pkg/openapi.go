@@ -168,12 +168,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						parentResourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
 						title := getResourceTitleFromRequestSchema(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+title)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, title)
 						setReadOperationMapping(typeToken)
 
-						funcName := "get" + title
+						funcName := "get" + dResource.Value.Title
 						funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 						getterFuncSpec := o.genGetFunc(*pathItem, *dResource, module, funcName)
 						o.Pkg.Functions[funcTypeToken] = getterFuncSpec
@@ -181,10 +180,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
-					// HACK! Use the singular version of the resource name
-					// where the current operation is fetching a single
-					// item instead of a list.
-					resourceName = strings.TrimSuffix(resourceName, "s")
 
 					// The resource needs to be read from the cloud provider API,
 					// so we should map this "read" endpoint for this resource.
@@ -263,9 +258,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				for _, n := range schemaNames {
 					dResource := o.Doc.Components.Schemas[n]
-					parentResourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
 					resourceName := getResourceTitleFromRequestSchema(n, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setUpdateOperationMapping(typeToken)
 				}
 			} else {
@@ -302,9 +296,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				for _, ref := range resourceType.Discriminator.Mapping {
 					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 					dResource := o.Doc.Components.Schemas[schemaName]
-					parentResourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
 					resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
-					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setPutOperationMapping(typeToken)
 				}
 			} else {
@@ -352,9 +345,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
-						parentResourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
 						resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
-						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, parentResourceName+resourceName)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 						setDeleteOperationMapping(typeToken)
 					}
 				} else {
