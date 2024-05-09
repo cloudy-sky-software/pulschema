@@ -371,6 +371,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
 
+		// TODO: Make request body optional for POST requests.
+		// Such requests are used for ad hoc operations on
+		// resources.
+
 		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
 		if jsonReq.Schema.Value == nil {
 			return nil, o.Doc, errors.Errorf("path %s has no api schema definition for post method", currentPath)
@@ -954,6 +958,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		// which are actually just simple types.
 		if !typeSchema.Value.Type.Is(openapi3.TypeObject) &&
 			len(typeSchema.Value.Properties) == 0 &&
+			len(typeSchema.Value.OneOf) == 0 &&
 			len(typeSchema.Value.AllOf) == 0 {
 			return &pschema.TypeSpec{
 				Type: typeSchema.Value.Type.Slice()[0],
