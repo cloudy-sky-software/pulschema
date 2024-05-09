@@ -375,12 +375,15 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// Such requests are used for ad hoc operations on
 		// resources.
 
-		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
-		if jsonReq.Schema.Value == nil {
-			return nil, o.Doc, errors.Errorf("path %s has no api schema definition for post method", currentPath)
+		var jsonReq *openapi3.MediaType
+		if pathItem.Post.RequestBody != nil {
+			jsonReq = pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq.Schema.Value == nil {
+				return nil, o.Doc, errors.Errorf("path %s has no request body schema for post method", currentPath)
+			}
+		} else {
+			jsonReq = openapi3.NewMediaType().WithSchema(openapi3.NewSchema())
 		}
-
-		resourceRequestType := jsonReq.Schema.Value
 
 		// Usually 201 and 202 status codes don't have response bodies,
 		// but some OpenAPI specs seem to have a response body for those
@@ -409,6 +412,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 
+		resourceRequestType := jsonReq.Schema.Value
 		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
@@ -1198,6 +1202,9 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 
 	if len(typeSchema.AllOf) > 0 {
 		return ctx.genPropertiesFromAllOf(parentName, typeSchema.AllOf)
+	}
+	if len(typeSchema.OneOf) > 0 {
+		return nil, nil, errors.New("unimplemented")
 	}
 
 	return specs, requiredSpecs, nil
