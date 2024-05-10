@@ -820,8 +820,12 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	// If there is a response body schema, then add its required
 	// properties as well.
 	if responseBodySchema != nil {
-		for _, required := range responseBodySchema.Required {
-			requiredOutputs.Add(required)
+		for _, requiredProp := range responseBodySchema.Required {
+			if requiredProp == "id" {
+				continue
+			}
+
+			requiredOutputs.Add(requiredProp)
 		}
 	}
 
@@ -974,8 +978,11 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		if newType {
 			ctx.visitedTypes.Add(tok)
 
-			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
+			if len(typeSchema.Value.OneOf) > 0 {
+				return ctx.propertyTypeSpec(typName, *typeSchema)
+			}
 
+			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
 			if err != nil {
 				return nil, false, errors.Wrapf(err, "generating properties for %s", typName)
 			}
@@ -1123,6 +1130,10 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	requiredSpecs := codegen.NewStringSet()
 
 	for _, name := range codegen.SortedKeys(typeSchema.Properties) {
+		if name == "id" {
+			continue
+		}
+
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
 
@@ -1190,6 +1201,10 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	}
 
 	for _, name := range typeSchema.Required {
+		if name == "id" {
+			continue
+		}
+
 		sdkName := ToSdkName(name)
 		if sdkName != name {
 			addNameOverride(sdkName, name, ctx.sdkToAPINameMap)
@@ -1202,9 +1217,6 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 
 	if len(typeSchema.AllOf) > 0 {
 		return ctx.genPropertiesFromAllOf(parentName, typeSchema.AllOf)
-	}
-	if len(typeSchema.OneOf) > 0 {
-		return nil, nil, errors.New("unimplemented")
 	}
 
 	return specs, requiredSpecs, nil
