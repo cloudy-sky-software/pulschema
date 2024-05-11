@@ -33,7 +33,7 @@ paths:
       operationId: listSubResources
       responses:
         "200":
-          description: The response will be a JSON object with a key called `action`.
+          description: The response will be a JSON object with a key called `subResources` which is an array of sub-resource items.
           content:
             application/json:
               schema:
