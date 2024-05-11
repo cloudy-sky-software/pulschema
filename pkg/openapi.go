@@ -315,7 +315,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
-				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
+				parameters := pathItem.Parameters
+				parameters = append(parameters, pathItem.Put.Parameters...)
+				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, parameters, module); err != nil {
 					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
 			}
@@ -371,10 +373,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
 
-		// TODO: Make request body optional for POST requests.
-		// Such requests are used for ad hoc operations on
-		// resources.
-
 		var jsonReq *openapi3.MediaType
 		if pathItem.Post.RequestBody != nil {
 			jsonReq = pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
@@ -413,7 +411,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 
 		resourceRequestType := jsonReq.Schema.Value
-		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
+		parameters := pathItem.Parameters
+		parameters = append(parameters, pathItem.Post.Parameters...)
+		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
 	}
@@ -445,7 +445,10 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
-	for _, param := range pathItem.Get.Parameters {
+
+	parameters := pathItem.Parameters
+	parameters = append(parameters, pathItem.Get.Parameters...)
+	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
 			continue
 		}
@@ -530,7 +533,11 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
-	for _, param := range pathItem.Get.Parameters {
+
+	parameters := pathItem.Parameters
+	parameters = append(parameters, pathItem.Get.Parameters...)
+
+	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
 			continue
 		}
