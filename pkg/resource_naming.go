@@ -93,19 +93,9 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	return resourceTitle
 }
 
-var replaceKeywords = []string{"POST", "Post", "post", "DELETE", "Delete", "delete", "put", "PUT", "Put", "Patch", "PATCH", "patch", "get", "GET", "Get"}
-
-func sanitizeResourceTitle(title string) string {
-	for _, keyword := range replaceKeywords {
-		title = strings.ReplaceAll(title, keyword, "")
-	}
-
-	return title
-}
-
 func getResourceTitleFromRequestSchema(schemaName string, schemaRef *openapi3.SchemaRef) string {
 	if schemaRef.Value.Title != "" {
-		return ToPascalCase(sanitizeResourceTitle(schemaRef.Value.Title))
+		return ToPascalCase(schemaRef.Value.Title)
 	}
 
 	var title string
@@ -122,7 +112,7 @@ func getResourceTitleFromRequestSchema(schemaName string, schemaRef *openapi3.Sc
 		title = result
 	}
 
-	return sanitizeResourceTitle(title)
+	return title
 }
 
 // ensureIDHierarchyInRequestPath ensures that the IDs in the path
