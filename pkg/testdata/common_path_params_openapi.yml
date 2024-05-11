@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    a_string_prop:
+      type: string
+    request_object_type:
+      type: object
+      properties:
+        simple_prop:
+          $ref: "#/components/schemas/a_string_prop"
+    response_object_type:
+      type: object
+      properties:
+        another_prop:
+          $ref: "#/components/schemas/a_string_prop"
+
+paths:
+  /v2/fakeResource/{id}/subResource:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listSubResources
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `subResources` which is an array of sub-resource items.
+          content:
+            application/json:
+              schema:
+                properties:
+                  subResources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/response_object_type"
+    post:
+      operationId: createSubResource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"

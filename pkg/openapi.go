@@ -315,7 +315,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
-				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, pathItem.Put.Parameters, module); err != nil {
+				parameters := pathItem.Parameters
+				parameters = append(parameters, pathItem.Put.Parameters...)
+				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, parameters, module); err != nil {
 					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 				}
 			}
@@ -371,12 +373,15 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
 
-		jsonReq := pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
-		if jsonReq.Schema.Value == nil {
-			return nil, o.Doc, errors.Errorf("path %s has no api schema definition for post method", currentPath)
+		var jsonReq *openapi3.MediaType
+		if pathItem.Post.RequestBody != nil {
+			jsonReq = pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq.Schema.Value == nil {
+				return nil, o.Doc, errors.Errorf("path %s has no request body schema for post method", currentPath)
+			}
+		} else {
+			jsonReq = openapi3.NewMediaType().WithSchema(openapi3.NewSchema())
 		}
-
-		resourceRequestType := jsonReq.Schema.Value
 
 		// Usually 201 and 202 status codes don't have response bodies,
 		// but some OpenAPI specs seem to have a response body for those
@@ -405,7 +410,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
 
-		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, pathItem.Post.Parameters, module); err != nil {
+		resourceRequestType := jsonReq.Schema.Value
+		parameters := pathItem.Parameters
+		parameters = append(parameters, pathItem.Post.Parameters...)
+		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
 	}
@@ -437,7 +445,10 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
-	for _, param := range pathItem.Get.Parameters {
+
+	parameters := pathItem.Parameters
+	parameters = append(parameters, pathItem.Get.Parameters...)
+	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
 			continue
 		}
@@ -522,7 +533,11 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
-	for _, param := range pathItem.Get.Parameters {
+
+	parameters := pathItem.Parameters
+	parameters = append(parameters, pathItem.Get.Parameters...)
+
+	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
 			continue
 		}
@@ -812,8 +827,12 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	// If there is a response body schema, then add its required
 	// properties as well.
 	if responseBodySchema != nil {
-		for _, required := range responseBodySchema.Required {
-			requiredOutputs.Add(required)
+		for _, requiredProp := range responseBodySchema.Required {
+			if requiredProp == "id" {
+				continue
+			}
+
+			requiredOutputs.Add(requiredProp)
 		}
 	}
 
@@ -941,6 +960,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	if propSchema.Ref != "" && !propSchema.Value.Type.Is(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
+		typName = sanitizeResourceTitle(typName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
 		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
@@ -954,10 +974,15 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		// which are actually just simple types.
 		if !typeSchema.Value.Type.Is(openapi3.TypeObject) &&
 			len(typeSchema.Value.Properties) == 0 &&
+			len(typeSchema.Value.OneOf) == 0 &&
 			len(typeSchema.Value.AllOf) == 0 {
 			return &pschema.TypeSpec{
 				Type: typeSchema.Value.Type.Slice()[0],
 			}, false, nil
+		}
+
+		if len(typeSchema.Value.OneOf) > 0 {
+			return ctx.propertyTypeSpec(typName, *typeSchema)
 		}
 
 		newType := !ctx.visitedTypes.Has(tok)
@@ -966,7 +991,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			ctx.visitedTypes.Add(tok)
 
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
-
 			if err != nil {
 				return nil, false, errors.Wrapf(err, "generating properties for %s", typName)
 			}

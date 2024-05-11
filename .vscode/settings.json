@@ -3,5 +3,10 @@
         "build.env": {
             "GOPRIVATE": "github.com/cloudy-sky-software/pulumi-render,github.com/cloudy-sky-software/pulschema"
         }
+    },
+    "yaml.schemas": {
+        "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/schemas/v3.1/schema.json": [
+            "**/testdata/*.yml"
+        ]
     }
 }
