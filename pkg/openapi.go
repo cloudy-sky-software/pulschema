@@ -973,14 +973,14 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			}, false, nil
 		}
 
+		if len(typeSchema.Value.OneOf) > 0 {
+			return ctx.propertyTypeSpec(typName, *typeSchema)
+		}
+
 		newType := !ctx.visitedTypes.Has(tok)
 
 		if newType {
 			ctx.visitedTypes.Add(tok)
-
-			if len(typeSchema.Value.OneOf) > 0 {
-				return ctx.propertyTypeSpec(typName, *typeSchema)
-			}
 
 			specs, requiredSpecs, err := ctx.genProperties(typName, *typeSchema.Value)
 			if err != nil {
