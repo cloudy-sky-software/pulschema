@@ -404,7 +404,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if statusCodeOkResp != nil {
 			jsonResp := statusCodeOkResp.Value.Content.Get(jsonMimeType)
 			if jsonResp != nil {
-				resourceResponseType = jsonResp.Schema.Value
+				// TODO: Looks like kin-openapi isn't automatically resolving
+				// the ref for response schemas unlike request schemas. Bug?
+				if jsonResp.Schema.Ref != "" {
+					v, err := o.Doc.Components.Schemas.JSONLookup(strings.TrimPrefix(jsonResp.Schema.Ref, componentsSchemaRefPrefix))
+					if err != nil {
+						return nil, o.Doc, err
+					}
+					resourceResponseType = v.(*openapi3.Schema)
+				} else {
+					resourceResponseType = jsonResp.Schema.Value
+				}
 			}
 		}
 
@@ -759,6 +769,33 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				addNameOverride(sdkName, propName, o.sdkToAPINameMap)
 				addNameOverride(propName, sdkName, o.apiToSDKNameMap)
 			}
+
+			// If the cloud API nests the response inside a property
+			// using the name of the resource, it'll certainly cause
+			// a failure in generating the .NET SDK but we don't set
+			// the Pulumi languageOverride for them because it doesn't
+			// make sense from an end-user perspective to nest the output
+			// inside another property. It lends to a bad dev UX.
+			// So providers should actually pluck the nested property
+			// in both the OpenAPI spec, as well as in the provider
+			// callbacks.
+			//
+			// For example, say, you have a resource called `Database`
+			// and the response from the API looks like this:
+			// ```json
+			// {
+			//   "database":{...}
+			// }
+			// ```
+			// If left unmodified, then the Pulumi resource would
+			// have an output property called `database` in addition
+			// to all the input properties also being outputs.
+			// That means, the user would get this:
+			// ```typescript
+			// const db = new Database("db", {someProp:""}); <-- someProp could be an input
+			// db.database.someProp; <-- someProp is returned by the API in response to create the resource, which is normal.
+			// db.someProp; <-- input property again accessible as output.
+			// ```
 
 			// Don't add `id` to the output properties since Pulumi
 			// automatically adds that via `CustomResource` which
@@ -1322,6 +1359,9 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	}
 
 	typName := ToPascalCase(enumName)
+	if !strings.HasPrefix(typName, ctx.resourceName) {
+		typName = ctx.resourceName + enumName
+	}
 	tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
 	enumSpec := &pschema.ComplexTypeSpec{
