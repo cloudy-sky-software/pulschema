@@ -930,7 +930,12 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				}
 
 				inputProperties[name] = propSpec
-				properties[name] = propSpec
+				// Only add the input property as output,
+				// if we didn't already add it when the
+				// response body schema was processed.
+				if _, ok := properties[name]; !ok {
+					properties[name] = propSpec
+				}
 			}
 
 			for _, r := range refType.Required {
