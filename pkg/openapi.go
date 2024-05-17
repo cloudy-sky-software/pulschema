@@ -238,29 +238,29 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			resourceType := jsonReq.Schema.Value
 
 			if resourceType.Discriminator != nil || len(resourceType.OneOf) > 0 || len(resourceType.AnyOf) > 0 {
-				schemaNames := make([]string, 0)
+				schemaNames := codegen.NewStringSet()
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
 						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
-						schemaNames = append(schemaNames, schemaName)
+						schemaNames.Add(schemaName)
 					}
 				}
 
 				if len(resourceType.OneOf) > 0 {
 					for _, ref := range resourceType.OneOf {
 						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
-						schemaNames = append(schemaNames, schemaName)
+						schemaNames.Add(schemaName)
 					}
 				}
 
 				if len(resourceType.AnyOf) > 0 {
 					for _, ref := range resourceType.AnyOf {
 						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
-						schemaNames = append(schemaNames, schemaName)
+						schemaNames.Add(schemaName)
 					}
 				}
 
-				for _, n := range schemaNames {
+				for _, n := range schemaNames.SortedValues() {
 					dResource := o.Doc.Components.Schemas[n]
 					resourceName := getResourceTitleFromRequestSchema(n, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
@@ -636,10 +636,22 @@ func (o *OpenAPIContext) gatherResource(
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
 			}
 
+			var resourceTypeToken *string
+			var err error
 			// Don't prefix the parent name since this resource
 			// will already be scoped under a module.
 			discriminatedResourceName := ToPascalCase(discriminatedValue)
-			resourceTypeToken, err := o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
+			if resourceResponseType != nil && resourceResponseType.Discriminator != nil {
+				responseSchemaRef := resourceResponseType.Discriminator.Mapping[discriminatedValue]
+				responseSchemaName := strings.TrimPrefix(responseSchemaRef, componentsSchemaRefPrefix)
+				responseTypeSchema, ok := o.Doc.Components.Schemas[responseSchemaName]
+				if !ok {
+					return errors.Errorf("response schema type %s not found", responseSchemaName)
+				}
+				resourceTypeToken, err = o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, responseTypeSchema.Value, apiPath, module)
+			} else {
+				resourceTypeToken, err = o.gatherResourceProperties(discriminatedResourceName, *typeSchema.Value, resourceResponseType, apiPath, module)
+			}
 
 			if err != nil {
 				return errors.Wrapf(err, "gathering resource from api path %s", apiPath)
@@ -734,6 +746,19 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	}
 
 	if responseBodySchema != nil {
+		if len(responseBodySchema.AllOf) > 0 {
+			allOfProps, _, err := pkgCtx.genPropertiesFromAllOf(resourceName, responseBodySchema.AllOf)
+			if err != nil {
+				return nil, errors.Wrapf(err, "generating properties from response type allOf definition (resource %s, path: %s)", resourceName, apiPath)
+			}
+			for k, v := range allOfProps {
+				if k == "id" {
+					continue
+				}
+				properties[k] = v
+				// TODO: Should we add these properties to the required outputs as well?
+			}
+		}
 		for propName, prop := range responseBodySchema.Properties {
 			var propSpec pschema.PropertySpec
 
