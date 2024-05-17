@@ -404,7 +404,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if statusCodeOkResp != nil {
 			jsonResp := statusCodeOkResp.Value.Content.Get(jsonMimeType)
 			if jsonResp != nil {
-				resourceResponseType = jsonResp.Schema.Value
+				// TODO: Looks like kin-openapi isn't automatically resolving
+				// the ref for response schemas unlike request schemas. Bug?
+				if jsonResp.Schema.Ref != "" {
+					v, err := o.Doc.Components.Schemas.JSONLookup(strings.TrimPrefix(jsonResp.Schema.Ref, componentsSchemaRefPrefix))
+					if err != nil {
+						return nil, o.Doc, err
+					}
+					resourceResponseType = v.(*openapi3.Schema)
+				} else {
+					resourceResponseType = jsonResp.Schema.Value
+				}
 			}
 		}
 
