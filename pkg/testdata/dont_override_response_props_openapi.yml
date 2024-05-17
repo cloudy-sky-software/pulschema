@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    a_string_prop:
+      type: string
+    parent_object:
+      allOf:
+        - type: object
+          properties:
+            first_prop:
+              type: string
+        - type: object
+          properties:
+            some_prop:
+              type: string
+    parent_object_2:
+      allOf:
+        - type: object
+          properties:
+            first_prop:
+              type: string
+        - type: object
+          properties:
+            some_prop:
+              type: string
+        # This third schema is only present in this parent_object_2
+        # schema.
+        - type: object
+          properties:
+            another_prop:
+              type: string
+    request_object_type:
+      type: object
+      properties:
+        simple_prop:
+          $ref: "#/components/schemas/a_string_prop"
+        object_prop:
+          $ref: "#/components/schemas/parent_object"
+    response_object_type:
+      type: object
+      properties:
+        another_prop:
+          $ref: "#/components/schemas/a_string_prop"
+        object_prop:
+          # The response object schema points to a different
+          # object type that contains properties not present
+          # in the request body's schema.
+          $ref: "#/components/schemas/parent_object_2"
+
+paths:
+  /v2/fakeResource:
+    post:
+      operationId: create_fake_resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"
