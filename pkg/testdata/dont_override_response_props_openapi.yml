@@ -46,7 +46,7 @@ components:
     response_object_type:
       type: object
       properties:
-        another_prop:
+        simple_prop:
           $ref: "#/components/schemas/a_string_prop"
         object_prop:
           # The response object schema points to a different

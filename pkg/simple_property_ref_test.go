@@ -11,7 +11,7 @@ import (
 // simple property types are inlined instead of creating
 // a schema type.
 func TestSimplePropertyRef(t *testing.T) {
-	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "simple_property_ref.yml"))
+	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "simple_property_ref_openapi.yml"))
 
 	openAPICtx := &OpenAPIContext{
 		Doc: *testOpenAPIDoc,

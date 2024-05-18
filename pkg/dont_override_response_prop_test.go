@@ -25,9 +25,12 @@ func TestDontOverrideResponseProp(t *testing.T) {
 	_, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)
 	assert.Nil(t, err)
 
-	_, ok := testPulumiPkg.Resources["fake-package:fakeresource/v2:FakeResource"]
+	resourceSpec, ok := testPulumiPkg.Resources["fake-package:fakeresource/v2:FakeResource"]
 	assert.Truef(t, ok, "Expected to find a resource called FakeResource: %v", testPulumiPkg.Resources)
 
-	// The property simple_prop would have been converted to the SDK name in camelCase.
-	// assert.Equal(t, "string", resourceSpec.Properties["object_prop"])
+	// The output property `objectProp` for the resource
+	// should use the response type schema `parent_object_2`.
+	assert.Contains(t, resourceSpec.Properties, "objectProp")
+	objectProp := resourceSpec.Properties["objectProp"]
+	assert.Equal(t, "#/types/fake-package:fakeresource/v2:ParentObject2", objectProp.TypeSpec.Ref)
 }
