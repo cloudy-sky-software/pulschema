@@ -1169,9 +1169,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 	valType := propSchema.Value.Type
 	if valType == nil && len(propSchema.Value.AnyOf) == 1 {
-		// TODO: This is obviously incomplete.
-		// We are only considering one of the many
-		// types that this property could be.
 		valType = propSchema.Value.AnyOf[0].Value.Type
 	}
 
