@@ -1172,6 +1172,18 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		valType = propSchema.Value.AnyOf[0].Value.Type
 	}
 
+	if len(propSchema.Value.AnyOf) > 1 {
+		unionTypes := make([]pschema.TypeSpec, 0, len(propSchema.Value.AnyOf))
+		for _, schemaRef := range propSchema.Value.AnyOf {
+			typeSpec, _, err := ctx.propertyTypeSpec(parentName, *schemaRef)
+			if err != nil {
+				return nil, false, errors.Wrap(err, "generating type spec from anyOf definition")
+			}
+			unionTypes = append(unionTypes, *typeSpec)
+		}
+		return &pschema.TypeSpec{OneOf: unionTypes}, false, nil
+	}
+
 	// All other types.
 	switch {
 	case valType.Is(openapi3.TypeInteger):
