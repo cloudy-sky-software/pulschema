@@ -1,0 +1,77 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    an_enum_type:
+      type: string
+      enum:
+        - a
+        - b
+        - c
+    a_string_prop:
+      type: string
+    request_object_type:
+      type: object
+      properties:
+        simple_prop:
+          $ref: "#/components/schemas/a_string_prop"
+        # This prop has a ref to a shared enum type.
+        enum_prop:
+          $ref: "#/components/schemas/an_enum_type"
+    request_object_type2:
+      type: object
+      properties:
+        simple_prop:
+          $ref: "#/components/schemas/a_string_prop"
+        # Whereas this prop, also called `enum_prop`
+        # has an inline schema def.
+        enum_prop:
+          type: string
+          enum:
+            - d
+            - e
+            - f
+    response_object_type:
+      type: object
+      properties:
+        another_prop:
+          $ref: "#/components/schemas/a_string_prop"
+
+paths:
+  /v2/fakeResource:
+    post:
+      operationId: create_fake_resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"
+
+  /v2/fakeResource2:
+    post:
+      operationId: create_fake_resource2
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type2"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"
