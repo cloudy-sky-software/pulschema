@@ -13,7 +13,7 @@ import (
 // spec are sometimes processed should not add/remove such a type
 // based on which request is processed first.
 func TestMultiplePathsUsingSameRef(t *testing.T) {
-	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "multiple_paths_using_same_refs.yml"))
+	mustReadTestOpenAPIDoc(t, filepath.Join("testdata", "multiple_paths_using_same_refs_openapi.yml"))
 
 	openAPICtx := &OpenAPIContext{
 		Doc: *testOpenAPIDoc,

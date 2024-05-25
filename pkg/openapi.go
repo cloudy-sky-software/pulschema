@@ -1401,9 +1401,6 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	}
 
 	typName := ToPascalCase(enumName)
-	if !strings.HasPrefix(typName, ctx.resourceName) {
-		typName = ctx.resourceName + enumName
-	}
 	tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
 	enumSpec := &pschema.ComplexTypeSpec{
@@ -1437,8 +1434,17 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 		}
 
 		if !same {
-			msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
-			return nil, &duplicateEnumError{msg: msg}
+			// If the values are not the same and the type
+			// is not already prefixed with the resource name,
+			// we'll just use a unique name for it.
+			if !strings.HasPrefix(typName, ctx.resourceName) {
+				typName = ctx.resourceName + enumName
+				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
+				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
+			} else {
+				msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
+				return nil, &duplicateEnumError{msg: msg}
+			}
 		}
 
 		return &pschema.TypeSpec{
