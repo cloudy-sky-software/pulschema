@@ -44,9 +44,9 @@ components:
           $ref: "#/components/schemas/a_string_prop"
 
 paths:
-  /v2/fakeResource:
+  /v2/resource/someResource:
     post:
-      operationId: create_fake_resource
+      operationId: create_some_resource
       requestBody:
         content:
           application/json:
@@ -60,9 +60,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/response_object_type"
 
-  /v2/fakeResource2:
+  /v2/resource/someOtherResource:
     post:
-      operationId: create_fake_resource2
+      operationId: create_some_other_resource
       requestBody:
         content:
           application/json:
