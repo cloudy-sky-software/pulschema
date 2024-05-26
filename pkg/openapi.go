@@ -357,11 +357,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					if !strings.HasSuffix(resourceName, "Kubernetes") {
+						resourceName = strings.TrimSuffix(resourceName, "s")
+					}
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+				if !strings.HasSuffix(resourceName, "Kubernetes") {
+					resourceName = strings.TrimSuffix(resourceName, "s")
+				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setDeleteOperationMapping(typeToken)
 			}
@@ -419,6 +425,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
+		if !strings.HasSuffix(resourceName, "Kubernetes") {
+			resourceName = strings.TrimSuffix(resourceName, "s")
+		}
 
 		resourceRequestType := jsonReq.Schema.Value
 		parameters := pathItem.Parameters
@@ -663,6 +672,15 @@ func (o *OpenAPIContext) gatherResource(
 		return nil
 	}
 
+	if len(resourceRequestType.OneOf) > 0 {
+		glog.Infof("OneOf definition missing discriminator. Will treat it as AllOf for resource %s. All input properties will be optional.", resourceName)
+		schemaRefs := resourceRequestType.OneOf
+		for _, schemaRef := range schemaRefs {
+			schemaRef.Value.Required = nil
+		}
+		resourceRequestType.AllOf = schemaRefs
+	}
+
 	resourceTypeToken, err := o.gatherResourceProperties(resourceName, resourceRequestType, resourceResponseType, apiPath, module)
 
 	if err != nil {
@@ -759,6 +777,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				// TODO: Should we add these properties to the required outputs as well?
 			}
 		}
+
 		for propName, prop := range responseBodySchema.Properties {
 			var propSpec pschema.PropertySpec
 
@@ -1434,10 +1453,17 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 		}
 
 		if !same {
-			// If the values are not the same and the type
-			// is not already prefixed with the resource name,
-			// we'll just use a unique name for it.
-			if !strings.HasPrefix(typName, ctx.resourceName) {
+			// It could be that the other type is not even
+			// an enum.
+			if len(other.Enum) == 0 {
+				typName = enumName + "Enum"
+				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
+				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
+			} else if !strings.HasPrefix(typName, ctx.resourceName) {
+				// If the values are not the same and the type
+				// is not already prefixed with the resource name,
+				// we'll just use a unique name for it.
+				// Check if the other type is an enum.
 				typName = ctx.resourceName + enumName
 				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
