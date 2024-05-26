@@ -1444,31 +1444,31 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 
 	// Make sure that the type name we composed doesn't clash with another type
 	// already defined in the schema earlier. The same enum does show up in multiple
-	// places of specs, so we want to error only if they a) have the same name
-	// b) the list of values does not match.
+	// places of specs.
 	if other, ok := ctx.pkg.Types[tok]; ok {
+		if len(other.Enum) == 0 {
+			// The other type is not an enum, so we should
+			// distinguish this type as an enum.
+			return ctx.genEnumType(enumName+"Enum", propSchema)
+		}
+
 		same := len(enumSpec.Enum) == len(other.Enum)
 		for _, val := range other.Enum {
 			same = same && names.Has(val.Name)
 		}
 
 		if !same {
-			// It could be that the other type is not even
-			// an enum.
-			if len(other.Enum) == 0 {
-				typName = enumName + "Enum"
-				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
-				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
-			} else if !strings.HasPrefix(typName, ctx.resourceName) {
-				// If the values are not the same and the type
+			if !strings.HasPrefix(typName, ctx.resourceName) {
+				// Since the values are not the same and the type
 				// is not already prefixed with the resource name,
 				// we'll just use a unique name for it.
-				// Check if the other type is an enum.
-				typName = ctx.resourceName + enumName
-				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
-				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
+				return ctx.genEnumType(ctx.resourceName+enumName, propSchema)
 			} else {
-				msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
+				// If we got here, it means that this enum type
+				// has different values than the one that we
+				// already processed _and_ is already prefixed
+				// with the resource name.
+				msg := fmt.Sprintf("duplicate enum with different values %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
 				return nil, &duplicateEnumError{msg: msg}
 			}
 		}

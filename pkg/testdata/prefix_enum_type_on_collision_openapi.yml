@@ -14,34 +14,61 @@ components:
         - a
         - b
         - c
+
     a_string_prop:
       type: string
+
+    a_prop:
+      type: object
+      properties:
+        prop:
+          type: string
+
     request_object_type:
       type: object
       properties:
         simple_prop:
           $ref: "#/components/schemas/a_string_prop"
-        # This prop has a ref to a shared enum type.
-        enum_prop:
-          $ref: "#/components/schemas/an_enum_type"
+        # This prop is a ref to another type that is
+        # not an enum to simulate a collision between
+        # similarly-named properties that are not
+        # enums.
+        a_prop:
+          $ref: "#/components/schemas/a_prop"
+
     request_object_type2:
+      type: object
+      properties:
+        simple_prop:
+          $ref: "#/components/schemas/a_string_prop"
+        # This prop has a ref to a shared enum type.
+        a_prop:
+          $ref: "#/components/schemas/an_enum_type"
+
+    request_object_type3:
       type: object
       properties:
         simple_prop:
           $ref: "#/components/schemas/a_string_prop"
         # Whereas this prop, also called `enum_prop`
         # has an inline schema def.
-        enum_prop:
+        a_prop:
           type: string
           enum:
             - d
             - e
             - f
+
+  responses:
     response_object_type:
-      type: object
-      properties:
-        another_prop:
-          $ref: "#/components/schemas/a_string_prop"
+      description: The response will be a JSON object with a key called `action`.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              another_prop:
+                $ref: "#/components/schemas/a_string_prop"
 
 paths:
   /v2/resource/someResource:
@@ -54,11 +81,7 @@ paths:
               $ref: "#/components/schemas/request_object_type"
       responses:
         "200":
-          description: The response will be a JSON object with a key called `action`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/response_object_type"
+          $ref: "#/components/responses/response_object_type"
 
   /v2/resource/someOtherResource:
     post:
@@ -70,8 +93,16 @@ paths:
               $ref: "#/components/schemas/request_object_type2"
       responses:
         "200":
-          description: The response will be a JSON object with a key called `action`.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/response_object_type"
+          $ref: "#/components/responses/response_object_type"
+
+  /v2/resource/lastResource:
+    post:
+      operationId: create_last_resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type3"
+      responses:
+        "200":
+          $ref: "#/components/responses/response_object_type"
