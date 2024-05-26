@@ -30,6 +30,7 @@ const (
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
+var defaultAllowedPluralResourceNames = []string{"Kubernetes"}
 
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
