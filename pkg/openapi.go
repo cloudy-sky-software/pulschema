@@ -1463,14 +1463,14 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 				// is not already prefixed with the resource name,
 				// we'll just use a unique name for it.
 				return ctx.genEnumType(ctx.resourceName+enumName, propSchema)
-			} else {
-				// If we got here, it means that this enum type
-				// has different values than the one that we
-				// already processed _and_ is already prefixed
-				// with the resource name.
-				msg := fmt.Sprintf("duplicate enum with different values %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
-				return nil, &duplicateEnumError{msg: msg}
 			}
+
+			// If we got here, it means that this enum type
+			// has different values than the one that we
+			// already processed _and_ is already prefixed
+			// with the resource name.
+			msg := fmt.Sprintf("duplicate enum with different values %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
+			return nil, &duplicateEnumError{msg: msg}
 		}
 
 		return &pschema.TypeSpec{
