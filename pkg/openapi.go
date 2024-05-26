@@ -357,11 +357,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					if !strings.HasSuffix(resourceName, "Kubernetes") {
+						resourceName = strings.TrimSuffix(resourceName, "s")
+					}
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+				if !strings.HasSuffix(resourceName, "Kubernetes") {
+					resourceName = strings.TrimSuffix(resourceName, "s")
+				}
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setDeleteOperationMapping(typeToken)
 			}
@@ -419,6 +425,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
+		if !strings.HasSuffix(resourceName, "Kubernetes") {
+			resourceName = strings.TrimSuffix(resourceName, "s")
+		}
 
 		resourceRequestType := jsonReq.Schema.Value
 		parameters := pathItem.Parameters
@@ -663,6 +672,15 @@ func (o *OpenAPIContext) gatherResource(
 		return nil
 	}
 
+	if len(resourceRequestType.OneOf) > 0 {
+		glog.Infof("OneOf definition missing discriminator. Will treat it as AllOf for resource %s. All input properties will be optional.", resourceName)
+		schemaRefs := resourceRequestType.OneOf
+		for _, schemaRef := range schemaRefs {
+			schemaRef.Value.Required = nil
+		}
+		resourceRequestType.AllOf = schemaRefs
+	}
+
 	resourceTypeToken, err := o.gatherResourceProperties(resourceName, resourceRequestType, resourceResponseType, apiPath, module)
 
 	if err != nil {
@@ -759,6 +777,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 				// TODO: Should we add these properties to the required outputs as well?
 			}
 		}
+
 		for propName, prop := range responseBodySchema.Properties {
 			var propSpec pschema.PropertySpec
 
@@ -1425,26 +1444,33 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 
 	// Make sure that the type name we composed doesn't clash with another type
 	// already defined in the schema earlier. The same enum does show up in multiple
-	// places of specs, so we want to error only if they a) have the same name
-	// b) the list of values does not match.
+	// places of specs.
 	if other, ok := ctx.pkg.Types[tok]; ok {
+		if len(other.Enum) == 0 {
+			// The other type is not an enum, so we should
+			// distinguish this type as an enum.
+			return ctx.genEnumType(enumName+"Enum", propSchema)
+		}
+
 		same := len(enumSpec.Enum) == len(other.Enum)
 		for _, val := range other.Enum {
 			same = same && names.Has(val.Name)
 		}
 
 		if !same {
-			// If the values are not the same and the type
-			// is not already prefixed with the resource name,
-			// we'll just use a unique name for it.
 			if !strings.HasPrefix(typName, ctx.resourceName) {
-				typName = ctx.resourceName + enumName
-				tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
-				referencedTypeName = fmt.Sprintf("#/types/%s", tok)
-			} else {
-				msg := fmt.Sprintf("duplicate enum %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
-				return nil, &duplicateEnumError{msg: msg}
+				// Since the values are not the same and the type
+				// is not already prefixed with the resource name,
+				// we'll just use a unique name for it.
+				return ctx.genEnumType(ctx.resourceName+enumName, propSchema)
 			}
+
+			// If we got here, it means that this enum type
+			// has different values than the one that we
+			// already processed _and_ is already prefixed
+			// with the resource name.
+			msg := fmt.Sprintf("duplicate enum with different values %q: %+v vs. %+v", tok, enumSpec.Enum, other.Enum)
+			return nil, &duplicateEnumError{msg: msg}
 		}
 
 		return &pschema.TypeSpec{
