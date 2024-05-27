@@ -64,6 +64,10 @@ type OpenAPIContext struct {
 	// TypeSpecNamespaceSeparator is the separator used in the operationId value.
 	TypeSpecNamespaceSeparator string
 
+	// AllowedPluralResources is a slice of resource names that should not
+	// be converted to their singular version.
+	AllowedPluralResources []string
+
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
 	resourceCRUDMap map[string]*CRUDOperationsMap
@@ -84,7 +88,8 @@ type OpenAPIContext struct {
 	// to the SDK name used in the Pulumi schema. This can
 	// be used by providers to look-up the value for a path
 	// param in the inputs map.
-	pathParamNameMap map[string]string
+	pathParamNameMap       map[string]string
+	allowedPluralResources []string
 }
 
 type duplicateEnumError struct {
@@ -114,6 +119,8 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.sdkToAPINameMap = make(map[string]string)
 	o.apiToSDKNameMap = make(map[string]string)
 	o.pathParamNameMap = make(map[string]string)
+
+	o.allowedPluralResources = append(o.AllowedPluralResources, defaultAllowedPluralResourceNames...)
 
 	for _, path := range o.Doc.Paths.InMatchingOrder() {
 		pathItem := o.Doc.Paths.Find(path)
@@ -268,6 +275,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setUpdateOperationMapping(typeToken)
 			}
@@ -315,6 +323,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				parameters := pathItem.Parameters
 				parameters = append(parameters, pathItem.Put.Parameters...)
 				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, parameters, module); err != nil {
@@ -357,17 +366,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
-					if !strings.HasSuffix(resourceName, "Kubernetes") {
-						resourceName = strings.TrimSuffix(resourceName, "s")
-					}
+					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
-				if !strings.HasSuffix(resourceName, "Kubernetes") {
-					resourceName = strings.TrimSuffix(resourceName, "s")
-				}
+				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setDeleteOperationMapping(typeToken)
 			}
@@ -425,9 +430,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
-		if !strings.HasSuffix(resourceName, "Kubernetes") {
-			resourceName = strings.TrimSuffix(resourceName, "s")
-		}
+		resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 
 		resourceRequestType := jsonReq.Schema.Value
 		parameters := pathItem.Parameters
