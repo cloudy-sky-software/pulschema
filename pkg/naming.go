@@ -84,7 +84,7 @@ func addNameOverride(key, value string, m map[string]string) {
 
 func getSingularNameForResource(resourceName string, allowedPluralNames []string) string {
 	for _, n := range allowedPluralNames {
-		if strings.HasSuffix(resourceName, n) {
+		if !strings.HasSuffix(resourceName, n) {
 			return strings.TrimSuffix(resourceName, "s")
 		}
 	}
