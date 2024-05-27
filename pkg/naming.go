@@ -9,6 +9,7 @@ import (
 )
 
 var numbersRegexp = regexp.MustCompile("[0-9]+[_]*[a-zA-Z]+")
+var defaultAllowedPluralResourceNames = []string{"Kubernetes"}
 
 // ToSdkName converts a property or attribute name to the lowerCamelCase convention that
 // is used in Pulumi schema's properties.
@@ -79,4 +80,14 @@ func addNameOverride(key, value string, m map[string]string) {
 	}
 
 	m[key] = value
+}
+
+func getSingularNameForResource(resourceName string, allowedPluralNames []string) string {
+	for _, n := range allowedPluralNames {
+		if !strings.HasSuffix(resourceName, n) {
+			return strings.TrimSuffix(resourceName, "s")
+		}
+	}
+
+	return resourceName
 }
