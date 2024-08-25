@@ -417,7 +417,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			if jsonResp != nil {
 				// TODO: Looks like kin-openapi isn't automatically resolving
 				// the ref for response schemas unlike request schemas. Bug?
-				if jsonResp.Schema.Ref != "" {
+				if jsonResp.Schema.Ref != "" && jsonResp.Schema.Value == nil {
 					v, err := o.Doc.Components.Schemas.JSONLookup(strings.TrimPrefix(jsonResp.Schema.Ref, componentsSchemaRefPrefix))
 					if err != nil {
 						return nil, o.Doc, err
@@ -1052,10 +1052,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		typName = sanitizeResourceTitle(typName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
-		typeSchema, ok := ctx.openapiComponents.Schemas[schemaName]
-		if !ok {
-			return nil, false, errors.Errorf("definition %s not found in resource %s", schemaName, parentName)
-		}
+		typeSchema := propSchema
 
 		// If the ref is for a simple property type, just
 		// return a TypeSpec for that type.
@@ -1068,10 +1065,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			return &pschema.TypeSpec{
 				Type: typeSchema.Value.Type.Slice()[0],
 			}, false, nil
-		}
-
-		if len(typeSchema.Value.OneOf) > 0 {
-			return ctx.propertyTypeSpec(typName, *typeSchema)
 		}
 
 		newType := !ctx.visitedTypes.Has(tok)

@@ -57,7 +57,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodDelete:
 		replaceKeywords = append(replaceKeywords, "delete", "destroy", "remove")
 	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "get", "list")
+		replaceKeywords = append(replaceKeywords, "get", "list", "retrieve")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
