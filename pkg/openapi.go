@@ -455,6 +455,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // type the output result.
 func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, module, funcName string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
+	if funcName == "listReservedIPs" {
+		glog.Info("HELLO!")
+	}
 	funcPkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
