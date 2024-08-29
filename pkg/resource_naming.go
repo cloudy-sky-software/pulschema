@@ -8,6 +8,8 @@ import (
 	"github.com/golang/glog"
 )
 
+const postgres = "postgres"
+
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	if useParentResourceAsModule {
 		parentPath := getParentPath(path)
@@ -57,7 +59,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodDelete:
 		replaceKeywords = append(replaceKeywords, "delete", "destroy", "remove")
 	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "get", "list")
+		replaceKeywords = append(replaceKeywords, "get", "list", "retrieve")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
@@ -96,7 +98,12 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": "Delete", "Delete": "Delete", "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": "Get", "Get": "Get"}
 
 func sanitizeResourceTitle(title string) string {
+	titleContainsPostgres := strings.Contains(strings.ToLower(title), postgres)
 	for match, replaceWith := range replaceKeywords {
+		if titleContainsPostgres && (match == "post" || match == "Post") {
+			continue
+		}
+
 		if strings.Contains(title, match) {
 			title = strings.ReplaceAll(title, match, replaceWith)
 			break
