@@ -187,10 +187,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
-					// HACK! Use the singular version of the resource name
-					// where the current operation is fetching a single
-					// item instead of a list.
-					resourceName = strings.TrimSuffix(resourceName, "s")
+					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 
 					// The resource needs to be read from the cloud provider API,
 					// so we should map this "read" endpoint for this resource.
