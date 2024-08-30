@@ -69,7 +69,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	}
 
 	result := originalOperationID
-	operationIdContainsPostgres := strings.Contains(strings.ToLower(result), postgres)
+	operationIDContainsPostgres := strings.Contains(strings.ToLower(result), postgres)
 
 	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
@@ -85,7 +85,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	}
 
 	for _, v := range replaceKeywords {
-		if operationIdContainsPostgres && v == "post" {
+		if operationIDContainsPostgres && v == "post" {
 			continue
 		}
 		result = strings.ReplaceAll(result, v, "")
