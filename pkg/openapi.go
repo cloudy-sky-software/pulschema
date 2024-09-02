@@ -1371,7 +1371,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	return properties, requiredSpecs, nil
 }
 
-func getStringEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+func getStringEnumValues(enumName string, rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
 	enums := make([]pschema.EnumValueSpec, 0)
 	names := codegen.NewStringSet()
 
@@ -1381,10 +1381,19 @@ func getStringEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, 
 			continue
 		}
 
+		// Use the original name when adding to the set of unique
+		// enum values.
 		names.Add(name)
+
+		// Override the name of the enum member
+		// if it collides with the enum type's name.
+		enumItemName := name
+		if enumItemName == enumName {
+			enumItemName += "_"
+		}
 		enumVal := pschema.EnumValueSpec{
 			Value: val,
-			Name:  name,
+			Name:  enumItemName,
 		}
 		enums = append(enums, enumVal)
 	}
@@ -1429,7 +1438,7 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 
 	switch {
 	case propSchema.Type.Is(openapi3.TypeString):
-		enumSpec.Enum, names = getStringEnumValues(propSchema.Enum)
+		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum)
 	case propSchema.Type.Is(openapi3.TypeInteger):
 		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
 	default:

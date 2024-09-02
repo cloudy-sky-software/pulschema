@@ -1,0 +1,49 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    an_enum_type:
+      type: string
+      enum:
+        # This value conflicts with the name of the property that refers to this enum type.
+        - my_enum
+        - another_value
+
+    request_object_type:
+      type: object
+      properties:
+        simple_prop:
+          type: string
+        # This conflicts with the value my_enum which is one of the enum values in the referenced enum type.
+        my_enum:
+          $ref: "#/components/schemas/an_enum_type"
+
+  responses:
+    response_object_type:
+      description: The response will be a JSON object with a key called `action`.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              another_prop:
+                type: string
+
+paths:
+  /v2/resource/someResource:
+    post:
+      operationId: create_some_resource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          $ref: "#/components/responses/response_object_type"
