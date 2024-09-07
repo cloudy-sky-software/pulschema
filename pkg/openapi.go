@@ -520,20 +520,27 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		}
 	}
 
-	return &pschema.FunctionSpec{
-		Description: pathItem.Description,
-		Inputs: &pschema.ObjectTypeSpec{
-			Properties: inputProps,
-			Required:   requiredInputs.SortedValues(),
-		},
-		Outputs: &pschema.ObjectTypeSpec{
+	returnType := &pschema.ReturnTypeSpec{}
+	if outputPropType.Ref != "" {
+		returnType.TypeSpec = outputPropType
+	} else {
+		returnType.ObjectTypeSpec = &pschema.ObjectTypeSpec{
 			Properties: map[string]pschema.PropertySpec{
 				"items": {
 					TypeSpec: *outputPropType,
 				},
 			},
 			Required: []string{"items"},
+		}
+	}
+
+	return &pschema.FunctionSpec{
+		Description: pathItem.Description,
+		Inputs: &pschema.ObjectTypeSpec{
+			Properties: inputProps,
+			Required:   requiredInputs.SortedValues(),
 		},
+		ReturnType: returnType,
 	}, nil
 }
 
@@ -591,13 +598,8 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 			Properties: inputProps,
 			Required:   requiredInputs.SortedValues(),
 		},
-		Outputs: &pschema.ObjectTypeSpec{
-			Properties: map[string]pschema.PropertySpec{
-				"items": {
-					TypeSpec: *outputPropType,
-				},
-			},
-			Required: []string{"items"},
+		ReturnType: &pschema.ReturnTypeSpec{
+			TypeSpec: outputPropType,
 		},
 	}
 }
