@@ -57,9 +57,9 @@ type OpenAPIContext struct {
 	// `subResource` instead of a module called `rootResource`.
 	UseParentResourceAsModule bool
 
-	// OperationIdsHaveTypeSpecNamespace indicates if the API operation IDs
-	// are separated by the CADL namespace they were defined in.
-	OperationIdsHaveTypeSpecNamespace bool
+	// OperationIDsHaveTypeSpecNamespace indicates if the API operation IDs
+	// are separated by the TypeSpec namespace they were defined in.
+	OperationIDsHaveTypeSpecNamespace bool
 
 	// TypeSpecNamespaceSeparator is the separator used in the operationId value.
 	TypeSpecNamespaceSeparator string
@@ -186,7 +186,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						setReadOperationMapping(funcTypeToken)
 					}
 				} else {
-					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+					resourceName := getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIDsHaveTypeSpecNamespace)
 					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 
 					// The resource needs to be read from the cloud provider API,
@@ -206,7 +206,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			// Add the API operation as a list* function.
 			if resourceType.Type.Is(openapi3.TypeArray) || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
-				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIdsHaveTypeSpecNamespace)
+				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIDsHaveTypeSpecNamespace)
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
 				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, module, funcName)
 				if err != nil {
@@ -271,7 +271,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setUpdateOperationMapping(typeToken)
 				}
 			} else {
-				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setUpdateOperationMapping(typeToken)
@@ -310,7 +310,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					setPutOperationMapping(typeToken)
 				}
 			} else {
-				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setPutOperationMapping(typeToken)
 			}
@@ -319,7 +319,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			// AS LONG AS the endpoint does not end with a path param. It cannot be used
 			// to create resources if the endpoint itself requires the ID of the resource.
 			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
-				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				parameters := pathItem.Parameters
 				parameters = append(parameters, pathItem.Put.Parameters...)
@@ -362,13 +362,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						setDeleteOperationMapping(typeToken)
 					}
 				} else {
-					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIDsHaveTypeSpecNamespace)
 					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setDeleteOperationMapping(typeToken)
 				}
 			} else {
-				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIdsHaveTypeSpecNamespace)
+				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setDeleteOperationMapping(typeToken)
@@ -426,7 +426,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 		}
 
-		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIdsHaveTypeSpecNamespace)
+		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIDsHaveTypeSpecNamespace)
 		resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 
 		resourceRequestType := jsonReq.Schema.Value
