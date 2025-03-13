@@ -5,6 +5,7 @@ linters:
     - goconst
     - gofmt
     - gosec
+    - gosimple
     - govet
     - ineffassign
     - misspell
@@ -15,4 +16,3 @@ linters:
   disable:
     - lll
     - staticcheck
-    - megacheck
