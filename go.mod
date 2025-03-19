@@ -1,7 +1,6 @@
 module github.com/cloudy-sky-software/pulschema
 
 go 1.22.5
-
 toolchain go1.24.1
 
 require (
@@ -99,10 +98,10 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/zclconf/go-cty v1.14.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.19.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
