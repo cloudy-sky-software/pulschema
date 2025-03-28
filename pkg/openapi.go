@@ -316,9 +316,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 
 			// PUT methods can be used to create as well as update resources.
-			// AS LONG AS the endpoint does not end with a path param. It cannot be used
-			// to create resources if the endpoint itself requires the ID of the resource.
-			if pathItem.Post == nil && !strings.HasSuffix(currentPath, "}") {
+			if pathItem.Post == nil {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				parameters := pathItem.Parameters
@@ -375,17 +373,28 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 		}
 
-		if pathItem.Post == nil {
+		if pathItem.Post == nil && pathItem.Put == nil {
 			continue
 		}
 
-		contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
+		if pathItem.Post != nil {
+			contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
+		}
+
+		if pathItem.Put != nil {
+			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
+		}
 
 		var jsonReq *openapi3.MediaType
-		if pathItem.Post.RequestBody != nil {
+		if pathItem.Post != nil && pathItem.Post.RequestBody != nil {
 			jsonReq = pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
 			if jsonReq.Schema.Value == nil {
 				return nil, o.Doc, errors.Errorf("path %s has no request body schema for post method", currentPath)
+			}
+		} else if pathItem.Put != nil && pathItem.Put.RequestBody != nil {
+			jsonReq = pathItem.Put.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq.Schema.Value == nil {
+				return nil, o.Doc, errors.Errorf("path %s has no request body schema for put method", currentPath)
 			}
 		} else {
 			jsonReq = openapi3.NewMediaType().WithSchema(openapi3.NewSchema())
@@ -399,7 +408,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		responseCodes := []int{200, 201, 202}
 		var statusCodeOkResp *openapi3.ResponseRef
 		for _, code := range responseCodes {
-			statusCodeOkResp = pathItem.Post.Responses.Status(code)
+			if pathItem.Post != nil {
+				statusCodeOkResp = pathItem.Post.Responses.Status(code)
+			} else if pathItem.Put != nil {
+				statusCodeOkResp = pathItem.Put.Responses.Status(code)
+			}
 
 			// Stop looking for response body schema if we found
 			// one already.
@@ -426,12 +439,19 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			}
 		}
 
-		resourceName := getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIDsHaveTypeSpecNamespace)
-		resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
+		var resourceName string
+		var parameters openapi3.Parameters
+		if pathItem.Post != nil {
+			resourceName = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIDsHaveTypeSpecNamespace)
+			resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
+			parameters = append(pathItem.Parameters, pathItem.Post.Parameters...)
+		} else if pathItem.Put != nil {
+			resourceName = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
+			resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
+			parameters = append(pathItem.Parameters, pathItem.Put.Parameters...)
+		}
 
 		resourceRequestType := jsonReq.Schema.Value
-		parameters := pathItem.Parameters
-		parameters = append(parameters, pathItem.Post.Parameters...)
 		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
@@ -917,8 +937,12 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			if requiredProp == "id" {
 				continue
 			}
-
-			requiredOutputs.Add(requiredProp)
+			sdkName := ToSdkName(requiredProp)
+			if sdkName != requiredProp {
+				addNameOverride(sdkName, requiredProp, o.sdkToAPINameMap)
+				addNameOverride(requiredProp, sdkName, o.apiToSDKNameMap)
+			}
+			requiredOutputs.Add(sdkName)
 		}
 	}
 
