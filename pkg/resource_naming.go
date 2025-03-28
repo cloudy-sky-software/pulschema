@@ -65,7 +65,9 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodPost:
 		replaceKeywords = append(replaceKeywords, "add", "create", "post", "put", "set")
 	case http.MethodPut:
-		replaceKeywords = append(replaceKeywords, "add", "add-or-update", "create-or-replace", "upsert", "create", "put", "set", "update", "replace")
+		// Multi-word keywords need to be placed ahead of single word
+		// ones.
+		replaceKeywords = append(replaceKeywords, "add-or-update", "create-or-replace", "add", "upsert", "create", "put", "set", "update", "replace")
 	}
 
 	result := originalOperationID
