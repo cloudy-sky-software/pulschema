@@ -131,6 +131,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// Capture the iteration variable `path` because we use its pointer
 		// in the crudMap.
 		currentPath := path
+		parentPath := getParentPath(currentPath)
 		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
 
 		if index(o.ExcludedPaths, path) > -1 {
@@ -146,7 +147,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Get != nil {
 			contract.Assertf(pathItem.Get.OperationID != "", "operationId is missing for path GET %s", currentPath)
 
-			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
 
 			jsonReq := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
@@ -221,7 +221,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Patch != nil {
 			contract.Assertf(pathItem.Patch.OperationID != "", "operationId is missing for path PATCH %s", currentPath)
 
-			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("PATCH: Parent path for %s is %s\n", currentPath, parentPath)
 
 			jsonReq := pathItem.Patch.RequestBody.Value.Content.Get(jsonMimeType)
@@ -281,7 +280,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Put != nil {
 			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
 
-			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("PUT: Parent path for %s is %s\n", currentPath, parentPath)
 
 			jsonReq := pathItem.Put.RequestBody.Value.Content.Get(jsonMimeType)
@@ -314,25 +312,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 				setPutOperationMapping(typeToken)
 			}
-
-			// PUT methods can be used to create as well as update resources,
-			// but only if the parent path does not have a POST method defined.
-			parentPathItem := o.Doc.Paths.Find(parentPath)
-			if pathItem.Post == nil && (parentPathItem == nil || parentPathItem.Post == nil) {
-				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
-				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
-				parameters := pathItem.Parameters
-				parameters = append(parameters, pathItem.Put.Parameters...)
-				if err := o.gatherResource(currentPath, resourceName, *resourceType, nil /*response type*/, parameters, module); err != nil {
-					return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
-				}
-			}
 		}
 
 		if pathItem.Delete != nil {
 			contract.Assertf(pathItem.Delete.OperationID != "", "operationId is missing for path DELETE %s", currentPath)
 
-			parentPath := getParentPath(currentPath)
 			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
 
 			setDeleteOperationMapping := func(tok string) {
@@ -381,10 +365,22 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		if pathItem.Post != nil {
 			contract.Assertf(pathItem.Post.OperationID != "", "operationId is missing for path POST %s", currentPath)
-		}
-
-		if pathItem.Put != nil {
+		} else if pathItem.Put != nil {
 			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
+
+			var parentPathItem *openapi3.PathItem
+			// Because of the way parent path is calculated
+			// for endpoints, the current path item might
+			// actually be the parent.
+			if parentPath != currentPath {
+				// The parent path endpoint may not actually exist
+				// in the API spec sometimes.
+				parentPathItem = o.Doc.Paths.Find(parentPath)
+			}
+
+			if parentPathItem != nil && parentPathItem.Post != nil {
+				continue
+			}
 		}
 
 		var jsonReq *openapi3.MediaType
