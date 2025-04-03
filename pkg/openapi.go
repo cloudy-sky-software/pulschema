@@ -315,8 +315,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				setPutOperationMapping(typeToken)
 			}
 
-			// PUT methods can be used to create as well as update resources.
-			if pathItem.Post == nil {
+			// PUT methods can be used to create as well as update resources,
+			// but only if the parent path does not have a POST method defined.
+			parentPathItem := o.Doc.Paths.Find(parentPath)
+			if pathItem.Post == nil && (parentPathItem == nil || parentPathItem.Post == nil) {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				parameters := pathItem.Parameters
