@@ -899,7 +899,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		}
 
 		if requiredProp == "name" {
-			if autoNameProp, ok := o.autoNameMap[typeToken]; ok {
+			if autoNameProp, ok := o.autoNameMap[typeToken]; ok && autoNameProp != requiredProp {
 				return nil, errors.Errorf("auto-name prop already exists for resource %s (existing: %s, new: %s)", typeToken, autoNameProp, requiredProp)
 			}
 			o.autoNameMap[typeToken] = "name"
