@@ -22,7 +22,23 @@ components:
           $ref: "#/components/schemas/a_string_prop"
 
 paths:
-  /v2/fakeResource/{some_id}:
+  /v2/differentResource:
+    post:
+      operationId: createDifferentResource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"
+
+  /v2/differentResource/{some_id}:
     parameters:
       - name: some_id
         in: path
@@ -30,7 +46,7 @@ paths:
         schema:
           type: string
     get:
-      operationId: listSubResources
+      operationId: listDifferentResources
       responses:
         "200":
           description: The response will be a JSON object with a key called `subResources` which is an array of sub-resource items.
@@ -43,7 +59,42 @@ paths:
                     items:
                       $ref: "#/components/schemas/response_object_type"
     put:
-      operationId: createSubResource
+      operationId: updateDifferentResource
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/request_object_type"
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response_object_type"
+
+  /v2/fakeResource/{some_id}:
+    parameters:
+      - name: some_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: listFakeResources
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `subResources` which is an array of sub-resource items.
+          content:
+            application/json:
+              schema:
+                properties:
+                  subResources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/response_object_type"
+    put:
+      operationId: createFakeResource
       requestBody:
         content:
           application/json:
