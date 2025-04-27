@@ -1,18 +1,32 @@
+version: "2"
 linters:
-  enable-all: false
   enable:
-    - errcheck
     - goconst
-    - gofmt
     - gosec
-    - gosimple
-    - govet
-    - ineffassign
     - misspell
     - nakedret
     - revive
     - unconvert
-    - unused
   disable:
     - lll
     - staticcheck
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
