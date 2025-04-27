@@ -8,7 +8,7 @@ on:
       - main
 
 env:
-  GOLANG_CI_LINT_VERSION: v1.64.5
+  GOLANG_CI_LINT_VERSION: v2.1.5
   GO_VERSION: 1.24.x
 
 jobs:
@@ -28,7 +28,7 @@ jobs:
 
       - name: Lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANG_CI_LINT_VERSION
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(go env GOPATH)/bin $GOLANG_CI_LINT_VERSION
           make lint
 
       - name: Test

@@ -19,6 +19,7 @@ import (
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/maputil"
 )
 
 const (
@@ -1255,7 +1256,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	specs := map[string]pschema.PropertySpec{}
 	requiredSpecs := codegen.NewStringSet()
 
-	for _, name := range codegen.SortedKeys(typeSchema.Properties) {
+	for _, name := range maputil.SortedKeys(typeSchema.Properties) {
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
 
