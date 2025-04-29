@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/getkin/kin-openapi v0.131.0
-	github.com/golang/glog v1.2.4
+	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.165.0
 	github.com/pulumi/pulumi/sdk/v3 v3.165.0
