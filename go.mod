@@ -5,7 +5,7 @@ go 1.23.1
 toolchain go1.24.2
 
 require (
-	github.com/getkin/kin-openapi v0.131.0
+	github.com/getkin/kin-openapi v0.132.0
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.166.0
