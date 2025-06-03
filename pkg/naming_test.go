@@ -10,6 +10,7 @@ func TestToSdkName(t *testing.T) {
 	assert.Equal(t, "stringProp", ToSdkName("string_prop"))
 	assert.Equal(t, "stringProp", ToSdkName("string.prop"))
 	assert.Equal(t, "stringPropProp", ToSdkName("string.prop.prop"))
+	assert.Equal(t, "stringProp", ToSdkName("string-prop"))
 }
 
 func TestStartsWithNumber(t *testing.T) {

@@ -92,7 +92,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 			continue
 		}
 		if operationIDContainsSettings && v == "set" {
-			// placeholder "Setting" (noun) so "set" can be removed
+			// add a placeholder for "Setting" (noun) so "set" can be removed
 			result = strings.ReplaceAll(result, "Setting", "$___$")
 		}
 		result = strings.ReplaceAll(result, v, "")
