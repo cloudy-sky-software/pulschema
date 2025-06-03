@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var numbersRegexp = regexp.MustCompile("[0-9]+[_]*[a-zA-Z]+")
+var numbersRegexp = regexp.MustCompile("^[0-9]+[_]*[a-zA-Z]+")
 var defaultAllowedPluralResourceNames = []string{"Kubernetes", "Postgres", "Redis"}
 
 // ToSdkName converts a property or attribute name to the lowerCamelCase convention that
