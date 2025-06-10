@@ -2,7 +2,7 @@ module github.com/cloudy-sky-software/pulschema
 
 go 1.23.1
 
-toolchain go1.24.3
+toolchain go1.24.4
 
 require (
 	github.com/getkin/kin-openapi v0.132.0
