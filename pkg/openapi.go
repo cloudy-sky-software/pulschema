@@ -1037,7 +1037,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	}
 
 	// Is this property marked as a secret?
-	if isSecret, ok := p.Value.Extensions["x-pulumi-secret"]; ok {
+	if isSecret, ok := p.Value.Extensions[ExtSecretProp]; ok {
 		propertySpec.Secret = isSecret.(bool)
 	}
 
@@ -1326,7 +1326,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		}
 
 		// Is this property marked as a secret?
-		if isSecret, ok := value.Value.Extensions["x-pulumi-secret"]; ok {
+		if isSecret, ok := value.Value.Extensions[ExtSecretProp]; ok {
 			propertySpec.Secret = isSecret.(bool)
 		}
 
