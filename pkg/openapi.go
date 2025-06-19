@@ -1036,6 +1036,11 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		propertySpec.Default = p.Value.Default
 	}
 
+	// Is this property marked as a secret?
+	if isSecret, ok := p.Value.Extensions[ExtSecretProp]; ok {
+		propertySpec.Secret = isSecret.(bool)
+	}
+
 	languageName := strings.ToUpper(propName[:1]) + propName[1:]
 	if languageName == ctx.resourceName {
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
@@ -1318,6 +1323,11 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// very helpful anyway for arrays.
 		if value.Value.Default != nil && !value.Value.Type.Is(openapi3.TypeArray) {
 			propertySpec.Default = value.Value.Default
+		}
+
+		// Is this property marked as a secret?
+		if isSecret, ok := value.Value.Extensions[ExtSecretProp]; ok {
+			propertySpec.Secret = isSecret.(bool)
 		}
 
 		specs[sdkName] = propertySpec
