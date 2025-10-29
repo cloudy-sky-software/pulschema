@@ -26,6 +26,7 @@ const (
 	componentsSchemaRefPrefix = "#/components/schemas/"
 	typesSchemaRefPrefix      = "#/types/"
 	jsonMimeType              = "application/json"
+	plainTextMimeType         = "text/plain"
 	parameterLocationPath     = "path"
 	pathSeparator             = "/"
 )
@@ -150,9 +151,14 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
 
-			jsonReq := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
-			if jsonReq.Schema.Value == nil {
-				contract.Failf("Path %s has no schema definition for status code 200", currentPath)
+			respType := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
+			// IF the JSON mime type is not defined, try to check for the text/plain
+			// response type.
+			if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
+				respType = pathItem.Get.Responses.Status(200).Value.Content.Get(plainTextMimeType)
+				if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
+					contract.Failf("Path %s has no schema definition for status code 200", currentPath)
+				}
 			}
 
 			setReadOperationMapping := func(tok string) {
@@ -165,7 +171,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 			}
 
-			resourceType := jsonReq.Schema.Value
+			resourceType := respType.Schema.Value
 
 			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
 			// or a list of resources.
@@ -199,7 +205,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 					funcName := "get" + resourceName
 					funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-					getterFuncSpec := o.genGetFunc(*pathItem, *jsonReq.Schema, module, funcName)
+					getterFuncSpec := o.genGetFunc(*pathItem, *respType.Schema, module, funcName)
 					o.Pkg.Functions[funcTypeToken] = getterFuncSpec
 					setReadOperationMapping(funcTypeToken)
 				}
@@ -209,7 +215,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			if resourceType.Type.Is(openapi3.TypeArray) || strings.Contains(strings.ToLower(pathItem.Get.OperationID), "list") {
 				funcName := "list" + getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIDsHaveTypeSpecNamespace)
 				funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
-				funcSpec, err := o.genListFunc(*pathItem, *jsonReq.Schema, module, funcName)
+				funcSpec, err := o.genListFunc(*pathItem, *respType.Schema, module, funcName)
 				if err != nil {
 					return nil, o.Doc, errors.Wrap(err, "generating list function")
 				}
