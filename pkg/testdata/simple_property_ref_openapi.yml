@@ -37,3 +37,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/response_object_type"
+
+  /v2/simpleResource:
+    get:
+      operationId: get_simple_resource
+      responses:
+        "200":
+          description: The response will be a JSON object with a key called `action`.
+          content:
+            text/plain:
+              schema:
+                type: string
