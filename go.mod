@@ -6,7 +6,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/pkg/v3 v3.201.0
+	github.com/pulumi/pulumi/pkg/v3 v3.206.0
 	github.com/pulumi/pulumi/sdk/v3 v3.201.0
 	github.com/stretchr/testify v1.11.1
 )
