@@ -20,6 +20,8 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/maputil"
+
+	"github.com/cloudy-sky-software/pulschema/pkg/exclusions"
 )
 
 const (
@@ -40,9 +42,20 @@ type OpenAPIContext struct {
 	Doc openapi3.T
 	// Pkg is the Pulumi schema spec.
 	Pkg *pschema.PackageSpec
-	// ExcludedPaths is a slice of API endpoint paths
-	// that should be skipped.
+
+	// ExcludedPaths is a slice of API endpoint paths that should be skipped.
+	// DEPRECATED: Use Exclusions for more flexible path exclusion with pattern
+	// matching and HTTP method targeting. This field is maintained for backward
+	// compatibility and will be converted to Exclusion objects internally.
 	ExcludedPaths []string
+
+	// Exclusions is a slice of exclusion rules supporting pattern matching
+	// (exact, wildcard, regex) and HTTP method targeting.
+	// Example:
+	//   {Method: "GET", PathPattern: "/debug/*", PatternType: "wildcard"}
+	//   {PathPattern: "/internal/**", PatternType: "wildcard"}
+	//   {PathPattern: "^/api/v[0-9]+/test/.*", PatternType: "regex"}
+	Exclusions []exclusions.Exclusion
 	// UseParentResourceAsModule indicates whether an endpoint
 	// operation's parent resource should be used as the module
 	// for a resource rather than using the root path of the
@@ -73,6 +86,9 @@ type OpenAPIContext struct {
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
 	resourceCRUDMap map[string]*CRUDOperationsMap
+	// exclusionEvaluator evaluates which endpoints should
+	// be excluded.
+	exclusionEvaluator *exclusions.ExclusionEvaluator
 	// autoNameMap is a map of the resource type token
 	// and the property that can be auto-named.
 	autoNameMap  map[string]string
@@ -115,6 +131,17 @@ func (d *duplicateEnumError) Error() string {
 //     which properties can be patched when changes are detected in Diff() vs.
 //     which ones will force a resource replacement.
 func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, openapi3.T, error) {
+	// Initialize the exclusion evaluator
+	evaluator, err := exclusions.NewExclusionEvaluator(o.Exclusions, o.ExcludedPaths)
+	if err != nil {
+		return nil, o.Doc, errors.Wrap(err, "failed to initialize exclusion evaluator")
+	}
+	o.exclusionEvaluator = evaluator
+
+	if evaluator.Count() > 0 {
+		glog.V(1).Infof("Loaded %d exclusion rules", evaluator.Count())
+	}
+
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
 	o.autoNameMap = make(map[string]string)
 	o.visitedTypes = codegen.NewStringSet()
@@ -136,7 +163,18 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		parentPath := getParentPath(currentPath)
 		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
 
-		if index(o.ExcludedPaths, path) > -1 {
+		// Check each HTTP method for this path
+		methods := []string{}
+		if pathItem.Get != nil { methods = append(methods, "GET") }
+		if pathItem.Post != nil { methods = append(methods, "POST") }
+		if pathItem.Put != nil { methods = append(methods, "PUT") }
+		if pathItem.Patch != nil { methods = append(methods, "PATCH") }
+		if pathItem.Delete != nil { methods = append(methods, "DELETE") }
+
+		// Skip this entire path if ALL methods are excluded
+		allMethodsExcluded := len(methods) > 0 && allExcluded(o.exclusionEvaluator, methods, path)
+		if allMethodsExcluded {
+			glog.V(2).Infof("Excluding all methods for path %s", path)
 			continue
 		}
 
@@ -147,6 +185,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		glog.V(3).Infof("Processing path %s as %s\n", path, currentPath)
 
 		if pathItem.Get != nil {
+			if o.exclusionEvaluator.ShouldExclude("GET", path) {
+				glog.V(2).Infof("Excluding GET %s", path)
+			} else {
 			contract.Assertf(pathItem.Get.OperationID != "", "operationId is missing for path GET %s", currentPath)
 
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
@@ -1529,4 +1570,14 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	return &pschema.TypeSpec{
 		Ref: referencedTypeName,
 	}, nil
+}
+
+// allExcluded checks if all methods for a path are excluded
+func allExcluded(evaluator *exclusions.ExclusionEvaluator, methods []string, path string) bool {
+	for _, method := range methods {
+		if !evaluator.ShouldExclude(method, path) {
+			return false
+		}
+	}
+	return true
 }
