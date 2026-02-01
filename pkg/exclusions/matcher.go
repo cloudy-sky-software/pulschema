@@ -69,7 +69,7 @@ func NewWildcardMatcher(pattern string) (*WildcardMatcher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile wildcard pattern: %w", err)
 	}
-	
+
 	return &WildcardMatcher{
 		pattern: pattern,
 		regex:   regex,
@@ -80,7 +80,7 @@ func NewWildcardMatcher(pattern string) (*WildcardMatcher, error) {
 func wildcardToRegex(pattern string) string {
 	var result strings.Builder
 	result.WriteString("^")
-	
+
 	i := 0
 	for i < len(pattern) {
 		if i < len(pattern)-1 && pattern[i:i+2] == "**" {
@@ -104,7 +104,7 @@ func wildcardToRegex(pattern string) string {
 			i++
 		}
 	}
-	
+
 	result.WriteString("$")
 	return result.String()
 }
@@ -136,7 +136,7 @@ func NewRegexMatcher(pattern string) (*RegexMatcher, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile regex pattern: %w", err)
 	}
-	
+
 	return &RegexMatcher{
 		pattern: pattern,
 		regex:   regex,
@@ -163,7 +163,7 @@ func NewPathMatcher(pattern string, patternType PatternType) (PathMatcher, error
 	if pattern == "" {
 		return nil, fmt.Errorf("pattern cannot be empty")
 	}
-	
+
 	switch patternType {
 	case PatternTypeExact:
 		return NewExactMatcher(pattern), nil

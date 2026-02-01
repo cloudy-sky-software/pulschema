@@ -84,7 +84,7 @@ func TestNewExclusionEvaluator(t *testing.T) {
 			wantCount:   1,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evaluator, err := NewExclusionEvaluator(tt.exclusions, tt.legacyPaths)
@@ -95,7 +95,7 @@ func TestNewExclusionEvaluator(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			if evaluator.Count() != tt.wantCount {
 				t.Errorf("NewExclusionEvaluator() count = %v, want %v", evaluator.Count(), tt.wantCount)
 			}
@@ -228,18 +228,18 @@ func TestExclusionEvaluator_ShouldExclude(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			evaluator, err := NewExclusionEvaluator(tt.exclusions, tt.legacyPaths)
 			if err != nil {
 				t.Fatalf("NewExclusionEvaluator() error = %v", err)
 			}
-			
+
 			for _, tc := range tt.testCases {
 				got := evaluator.ShouldExclude(tc.method, tc.path)
 				if got != tc.want {
-					t.Errorf("ShouldExclude(%s, %s) = %v, want %v", 
+					t.Errorf("ShouldExclude(%s, %s) = %v, want %v",
 						tc.method, tc.path, got, tc.want)
 				}
 			}
@@ -253,12 +253,12 @@ func TestExclusionEvaluator_GetMatchingExclusions(t *testing.T) {
 		{PathPattern: "/internal/**", PatternType: PatternTypeWildcard},
 		{PathPattern: "^/api/v[0-9]+/.*", PatternType: PatternTypeRegex},
 	}
-	
+
 	evaluator, err := NewExclusionEvaluator(exclusions, nil)
 	if err != nil {
 		t.Fatalf("NewExclusionEvaluator() error = %v", err)
 	}
-	
+
 	tests := []struct {
 		name      string
 		method    string
@@ -290,12 +290,12 @@ func TestExclusionEvaluator_GetMatchingExclusions(t *testing.T) {
 			wantCount: 1,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matches := evaluator.GetMatchingExclusions(tt.method, tt.path)
 			if len(matches) != tt.wantCount {
-				t.Errorf("GetMatchingExclusions(%s, %s) returned %d matches, want %d. Matches: %v", 
+				t.Errorf("GetMatchingExclusions(%s, %s) returned %d matches, want %d. Matches: %v",
 					tt.method, tt.path, len(matches), tt.wantCount, matches)
 			}
 		})
@@ -344,14 +344,14 @@ func TestEndpointMatcher_Matches(t *testing.T) {
 			want:           true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher := EndpointMatcher{
 				method:      tt.matcherMethod,
 				pathMatcher: NewExactMatcher(tt.matcherPattern),
 			}
-			
+
 			if got := matcher.Matches(tt.testMethod, tt.testPath); got != tt.want {
 				t.Errorf("EndpointMatcher.Matches() = %v, want %v", got, tt.want)
 			}
@@ -412,7 +412,7 @@ func TestValidateExclusion(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateExclusion(&tt.exclusion)

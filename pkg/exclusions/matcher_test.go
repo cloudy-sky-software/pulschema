@@ -36,7 +36,7 @@ func TestExactMatcher(t *testing.T) {
 			want:    false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher := NewExactMatcher(tt.pattern)
@@ -134,7 +134,7 @@ func TestWildcardMatcher(t *testing.T) {
 			want:    true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher, err := NewWildcardMatcher(tt.pattern)
@@ -145,9 +145,9 @@ func TestWildcardMatcher(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			if got := matcher.Matches(tt.path); got != tt.want {
-				t.Errorf("WildcardMatcher.Matches() = %v, want %v (pattern: %s, path: %s)", 
+				t.Errorf("WildcardMatcher.Matches() = %v, want %v (pattern: %s, path: %s)",
 					got, tt.want, tt.pattern, tt.path)
 			}
 			if matcher.Pattern() != tt.pattern {
@@ -204,7 +204,7 @@ func TestRegexMatcher(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher, err := NewRegexMatcher(tt.pattern)
@@ -215,7 +215,7 @@ func TestRegexMatcher(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			if got := matcher.Matches(tt.path); got != tt.want {
 				t.Errorf("RegexMatcher.Matches() = %v, want %v", got, tt.want)
 			}
@@ -274,7 +274,7 @@ func TestNewPathMatcher(t *testing.T) {
 			wantErr:     true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher, err := NewPathMatcher(tt.pattern, tt.patternType)
@@ -285,7 +285,7 @@ func TestNewPathMatcher(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			if matcher.Type() != tt.wantType {
 				t.Errorf("NewPathMatcher() type = %v, want %v", matcher.Type(), tt.wantType)
 			}
@@ -319,14 +319,14 @@ func TestWildcardToRegex(t *testing.T) {
 			want:     true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher, err := NewWildcardMatcher(tt.pattern)
 			if err != nil {
 				t.Fatalf("NewWildcardMatcher() error = %v", err)
 			}
-			
+
 			if got := matcher.Matches(tt.testPath); got != tt.want {
 				t.Errorf("wildcardToRegex() matches = %v, want %v", got, tt.want)
 			}
