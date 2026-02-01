@@ -165,11 +165,21 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		// Check each HTTP method for this path
 		methods := []string{}
-		if pathItem.Get != nil { methods = append(methods, "GET") }
-		if pathItem.Post != nil { methods = append(methods, "POST") }
-		if pathItem.Put != nil { methods = append(methods, "PUT") }
-		if pathItem.Patch != nil { methods = append(methods, "PATCH") }
-		if pathItem.Delete != nil { methods = append(methods, "DELETE") }
+		if pathItem.Get != nil {
+			methods = append(methods, "GET")
+		}
+		if pathItem.Post != nil {
+			methods = append(methods, "POST")
+		}
+		if pathItem.Put != nil {
+			methods = append(methods, "PUT")
+		}
+		if pathItem.Patch != nil {
+			methods = append(methods, "PATCH")
+		}
+		if pathItem.Delete != nil {
+			methods = append(methods, "DELETE")
+		}
 
 		// Skip this entire path if ALL methods are excluded
 		allMethodsExcluded := len(methods) > 0 && allExcluded(o.exclusionEvaluator, methods, path)
@@ -187,7 +197,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Get != nil {
 			if o.exclusionEvaluator.ShouldExclude("GET", path) {
 				glog.V(2).Infof("Excluding GET %s", path)
-			} else {
+				continue
+			}
+
 			contract.Assertf(pathItem.Get.OperationID != "", "operationId is missing for path GET %s", currentPath)
 
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
@@ -267,6 +279,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if pathItem.Patch != nil {
+			if o.exclusionEvaluator.ShouldExclude("PATCH", path) {
+				glog.V(2).Infof("Excluding PATCH %s", path)
+				continue
+			}
+
 			contract.Assertf(pathItem.Patch.OperationID != "", "operationId is missing for path PATCH %s", currentPath)
 
 			glog.V(3).Infof("PATCH: Parent path for %s is %s\n", currentPath, parentPath)
@@ -326,6 +343,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if pathItem.Put != nil {
+			if o.exclusionEvaluator.ShouldExclude("PUT", path) {
+				glog.V(2).Infof("Excluding PUT %s", path)
+				continue
+			}
+
 			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
 
 			glog.V(3).Infof("PUT: Parent path for %s is %s\n", currentPath, parentPath)
@@ -363,6 +385,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if pathItem.Delete != nil {
+			if o.exclusionEvaluator.ShouldExclude("DELETE", path) {
+				glog.V(2).Infof("Excluding DELETE %s", path)
+				continue
+			}
+
 			contract.Assertf(pathItem.Delete.OperationID != "", "operationId is missing for path DELETE %s", currentPath)
 
 			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
@@ -408,6 +435,11 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if pathItem.Post == nil && pathItem.Put == nil {
+			continue
+		}
+
+		if o.exclusionEvaluator.ShouldExclude("POST", path) {
+			glog.V(2).Infof("Excluding POST %s", path)
 			continue
 		}
 
