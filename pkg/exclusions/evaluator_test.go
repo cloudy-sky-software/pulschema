@@ -250,6 +250,7 @@ func TestExclusionEvaluator_ShouldExclude(t *testing.T) {
 func TestExclusionEvaluator_GetMatchingExclusions(t *testing.T) {
 	exclusions := []Exclusion{
 		{Method: "GET", PathPattern: "/api/users/*", PatternType: PatternTypeWildcard},
+		{Method: "GET", PathPattern: "/api/v1/users/*", PatternType: PatternTypeWildcard},
 		{PathPattern: "/internal/**", PatternType: PatternTypeWildcard},
 		{PathPattern: "^/api/v[0-9]+/.*", PatternType: PatternTypeRegex},
 	}

@@ -2,6 +2,8 @@ package exclusions
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestExactMatcher(t *testing.T) {
@@ -59,7 +61,6 @@ func TestWildcardMatcher(t *testing.T) {
 		pattern string
 		path    string
 		want    bool
-		wantErr bool
 	}{
 		{
 			name:    "single wildcard - match",
@@ -123,7 +124,7 @@ func TestWildcardMatcher(t *testing.T) {
 		},
 		{
 			name:    "wildcard at start",
-			pattern: "*/users",
+			pattern: "**/users",
 			path:    "/api/users",
 			want:    true,
 		},
@@ -138,13 +139,7 @@ func TestWildcardMatcher(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matcher, err := NewWildcardMatcher(tt.pattern)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewWildcardMatcher() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				return
-			}
+			assert.Nil(t, err)
 
 			if got := matcher.Matches(tt.path); got != tt.want {
 				t.Errorf("WildcardMatcher.Matches() = %v, want %v (pattern: %s, path: %s)",

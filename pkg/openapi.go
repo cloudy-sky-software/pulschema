@@ -131,7 +131,6 @@ func (d *duplicateEnumError) Error() string {
 //     which properties can be patched when changes are detected in Diff() vs.
 //     which ones will force a resource replacement.
 func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]string) (*ProviderMetadata, openapi3.T, error) {
-	// Initialize the exclusion evaluator
 	evaluator, err := exclusions.NewExclusionEvaluator(o.Exclusions, o.ExcludedPaths)
 	if err != nil {
 		return nil, o.Doc, errors.Wrap(err, "failed to initialize exclusion evaluator")
