@@ -40,18 +40,6 @@ func getParentPath(path string) string {
 	return pathSeparator + strings.Join(parts[0:len(parts)-1], pathSeparator)
 }
 
-// index returns the index of the element `toFind`
-// in the slice `slice`. Returns -1 if not found.
-func index(slice []string, toFind string) int {
-	for i, s := range slice {
-		if s == toFind {
-			return i
-		}
-	}
-
-	return -1
-}
-
 func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByTypeSpecNamespace bool) string {
 	var replaceKeywords []string
 
