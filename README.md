@@ -1,3 +1,5 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/cloudy-sky-software/pulschema)
+
 # Pulschema
 
 Pul(umi) schema from API specs. Learn how to generate a provider using this library: https://buttondown.email/css-blog/archive/create-a-pulumi-provider-from-openapi-spec/.
