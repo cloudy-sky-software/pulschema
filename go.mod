@@ -118,4 +118,4 @@ require (
 	lukechampine.com/frand v1.4.2 // indirect
 )
 
-replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.0.0-20260206091702-e3f9919c9dcf
+replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.0.0-20260210100147-da004e9a862b
