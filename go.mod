@@ -4,6 +4,8 @@ go 1.24.7
 
 toolchain go1.24.11
 
+// github.com/getkin/kin-openapi is replaced with github.com/oasdiff/kin-openapi.
+// See replace directive at the bottom of this file.
 require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/golang/glog v1.2.5
@@ -83,6 +85,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/segmentio/encoding v0.4.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
@@ -114,3 +117,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/frand v1.4.2 // indirect
 )
+
+replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.0.0-20260210100147-da004e9a862b
