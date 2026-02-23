@@ -28,6 +28,12 @@ This is required since the OpenaPI docs created by cloud providers aren't always
 
 **NEW**: Refer to the [conformance repo](https://github.com/cloudy-sky-software/cloud-provider-api-conformance) for the rules related to the OpenAPI spec.
 
+## Development
+
+- Run `make ensure` to restore/cleanup dependencies.
+- Run `make lint` to run `golangci-lint` rules.
+- Run `make test` to run all the tests.
+
 ## Credits
 
 This library would not be possible without these wonderful creations.
