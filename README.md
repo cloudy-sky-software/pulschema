@@ -39,7 +39,7 @@ This is required since the OpenaPI docs created by cloud providers aren't always
 This library would not be possible without these wonderful creations.
 
 - https://github.com/getkin/kin-openapi - Used by the core of this library to parse and walk-through the OpenAPI doc.
-  - This library uses a [fork](https://github.com/oasdiff/kin-openapi) of this library that supports OpenAPI 3.1. Huge thanks to @oasdiff.
+  - As of February 2026, `pulschema` uses a [fork](https://github.com/oasdiff/kin-openapi) that supports OpenAPI 3.1. Huge thanks to @oasdiff.
 - https://github.com/pulumi/pulumi-aws-native - Served as an example of a native Pulumi provider that has solved some problems.
 - https://github.com/pulumi/pulumi-kubernetes - Served as a source for how to approach the conversion from OpenAPI to
   Pulumi schema.
