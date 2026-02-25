@@ -2,7 +2,7 @@ module github.com/cloudy-sky-software/pulschema
 
 go 1.24.7
 
-toolchain go1.24.11
+toolchain go1.26.0
 
 // github.com/getkin/kin-openapi is replaced with github.com/oasdiff/kin-openapi.
 // See replace directive at the bottom of this file.
