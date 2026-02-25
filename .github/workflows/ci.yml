@@ -9,7 +9,7 @@ on:
 
 env:
   GOLANG_CI_LINT_VERSION: v2.1.5
-  GO_VERSION: 1.24.x
+  GO_VERSION: 1.25.x
 
 jobs:
   lint-and-test:
