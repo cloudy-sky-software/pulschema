@@ -1,6 +1,6 @@
 module github.com/cloudy-sky-software/pulschema
 
-go 1.25.0
+go 1.25.7
 
 // github.com/getkin/kin-openapi is replaced with github.com/oasdiff/kin-openapi.
 // See replace directive at the bottom of this file.
