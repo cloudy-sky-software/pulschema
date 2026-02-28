@@ -14,8 +14,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	dotnetgen "github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3/codegen"
 	"github.com/pulumi/pulumi/pkg/v3/codegen"
-	dotnetgen "github.com/pulumi/pulumi/pkg/v3/codegen/dotnet"
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -35,7 +35,9 @@ const (
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
 
-var defaultEmptySchema = openapi3.NewSchema()
+// defaultEmptySchemaDoNotMutate is used to identify GET endpoints
+// with no response schema. Do not mutate.
+var defaultEmptySchemaDoNotMutate = openapi3.NewSchema()
 
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
@@ -212,8 +214,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				respType = pathItem.Get.Responses.Status(200).Value.Content.Get(plainTextMimeType)
 				if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
 					// Create an empty response type.
-					respType = openapi3.NewMediaType().WithSchema(defaultEmptySchema)
-					// contract.Failf("Path %s has no schema definition for status code 200", currentPath)
+					respType = openapi3.NewMediaType().WithSchema(defaultEmptySchemaDoNotMutate)
 				}
 			}
 
@@ -687,7 +688,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		requiredInputs.Add(sdkName)
 	}
 
-	if returnTypeSchema.Value == nil || returnTypeSchema.Value == defaultEmptySchema {
+	if returnTypeSchema.Value == nil || returnTypeSchema.Value == defaultEmptySchemaDoNotMutate {
 		return pschema.FunctionSpec{
 			Description: pathItem.Description,
 			Inputs: &pschema.ObjectTypeSpec{
