@@ -35,6 +35,8 @@ const (
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
 
+var defaultEmptySchema = openapi3.NewSchema()
+
 // OpenAPIContext represents an OpenAPI spec from which a Pulumi package
 // spec can be extracted.
 type OpenAPIContext struct {
@@ -209,7 +211,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
 				respType = pathItem.Get.Responses.Status(200).Value.Content.Get(plainTextMimeType)
 				if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
-					contract.Failf("Path %s has no schema definition for status code 200", currentPath)
+					// Create an empty response type.
+					respType = openapi3.NewMediaType().WithSchema(defaultEmptySchema)
+					// contract.Failf("Path %s has no schema definition for status code 200", currentPath)
 				}
 			}
 
@@ -477,11 +481,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			jsonReq = openapi3.NewMediaType().WithSchema(openapi3.NewSchema())
 		}
 
-		// Usually 201 and 202 status codes don't have response bodies,
-		// but some OpenAPI specs seem to have a response body for those
-		// status codes. For example, DigitalOcean responds with 202
-		// for a request to provision Floating IPs that may not be
-		// fully provisioned yet.
+		// 201 and 202 status codes contain provisional response bodies.
+		// For example, DigitalOcean responds with 202 for a request
+		// to provision Floating IPs that may not be fully
+		// provisioned yet.
 		responseCodes := []int{200, 201, 202}
 		var statusCodeOkResp *openapi3.ResponseRef
 		for _, code := range responseCodes {
@@ -682,6 +685,16 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 			TypeSpec:    pschema.TypeSpec{Type: "string"},
 		}
 		requiredInputs.Add(sdkName)
+	}
+
+	if returnTypeSchema.Value == nil || returnTypeSchema.Value == defaultEmptySchema {
+		return pschema.FunctionSpec{
+			Description: pathItem.Description,
+			Inputs: &pschema.ObjectTypeSpec{
+				Properties: inputProps,
+				Required:   requiredInputs.SortedValues(),
+			},
+		}
 	}
 
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
