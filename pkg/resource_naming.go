@@ -47,7 +47,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodDelete:
 		replaceKeywords = append(replaceKeywords, "delete", "destroy", "remove")
 	case http.MethodGet:
-		replaceKeywords = append(replaceKeywords, "get", "list", "retrieve")
+		replaceKeywords = append(replaceKeywords, "get", "list", "retrieve", "show")
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
@@ -120,12 +120,12 @@ func getResourceTitleFromRequestSchema(schemaName string, schemaRef *openapi3.Sc
 
 	var title string
 
-	if strings.Contains(schemaName, "_") {
+	if !strings.Contains(schemaName, "_") {
 		title = ToPascalCase(schemaName)
 	} else {
 		parts := strings.Split(schemaName, "_")
-		result := parts[0]
-		for _, p := range parts[1:] {
+		result := ""
+		for _, p := range parts {
 			result += ToPascalCase(p)
 		}
 
