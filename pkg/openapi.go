@@ -207,15 +207,22 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
 
-			respType := pathItem.Get.Responses.Status(200).Value.Content.Get(jsonMimeType)
-			// IF the JSON mime type is not defined, try to check for the text/plain
-			// response type.
-			if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
-				respType = pathItem.Get.Responses.Status(200).Value.Content.Get(plainTextMimeType)
+			// GET endpoints may not have a response body at all.
+			// For example, ad-hoc actions like restarting a VM or
+			// initiating a backup may return 204 No Content.
+			var respType *openapi3.MediaType
+			statusOkResp := pathItem.Get.Responses.Status(200)
+			if statusOkResp != nil && statusOkResp.Value != nil && statusOkResp.Value.Content != nil {
+				respType = statusOkResp.Value.Content.Get(jsonMimeType)
+				// If the JSON mime type is not defined, try to check for the text/plain
+				// response type.
 				if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
-					// Create an empty response type.
-					respType = openapi3.NewMediaType().WithSchema(defaultEmptySchemaDoNotMutate)
+					respType = statusOkResp.Value.Content.Get(plainTextMimeType)
 				}
+			}
+			if respType == nil || respType.Schema == nil || respType.Schema.Value == nil {
+				// Create an empty response type.
+				respType = openapi3.NewMediaType().WithSchema(defaultEmptySchemaDoNotMutate)
 			}
 
 			setReadOperationMapping := func(tok string) {

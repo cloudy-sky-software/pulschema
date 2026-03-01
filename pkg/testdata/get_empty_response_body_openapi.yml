@@ -1,0 +1,110 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    vm:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier for the VM.
+        name:
+          type: string
+          description: The name of the VM.
+        status:
+          type: string
+          description: The current status of the VM.
+      required:
+        - id
+        - name
+    vm_list_response:
+      type: object
+      properties:
+        vms:
+          type: array
+          items:
+            $ref: "#/components/schemas/vm"
+
+  parameters:
+    vm_id:
+      description: The VM ID
+      in: path
+      name: vm_id
+      required: true
+      schema:
+        type: string
+      example: vm-123
+
+  responses:
+    no_content:
+      description: The action was successful. No content returned.
+    get_vm:
+      description: A JSON object with the VM details.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/vm"
+    list_vms:
+      description: A JSON object with a list of VMs.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/vm_list_response"
+
+paths:
+  /v2/vms:
+    post:
+      operationId: vms_create
+      summary: Create a VM
+      tags:
+        - VMs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/vm"
+      responses:
+        "201":
+          $ref: "#/components/responses/get_vm"
+
+    get:
+      operationId: vms_list
+      summary: List all VMs
+      tags:
+        - VMs
+      responses:
+        "200":
+          $ref: "#/components/responses/list_vms"
+
+  /v2/vms/{vm_id}:
+    get:
+      operationId: vms_get
+      summary: Get a VM
+      tags:
+        - VMs
+      parameters:
+        - $ref: "#/components/parameters/vm_id"
+      responses:
+        "200":
+          $ref: "#/components/responses/get_vm"
+
+  /v2/vms/{vm_id}/restart:
+    get:
+      operationId: vms_restart
+      summary: Restart a VM
+      description: >-
+        Initiates a restart of the specified VM. This is an ad-hoc
+        action that does not return a response body.
+      tags:
+        - VMs
+      parameters:
+        - $ref: "#/components/parameters/vm_id"
+      responses:
+        "204":
+          $ref: "#/components/responses/no_content"
