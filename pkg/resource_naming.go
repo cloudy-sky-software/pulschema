@@ -61,6 +61,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	result := originalOperationID
 	operationIDContainsPostgres := strings.Contains(strings.ToLower(result), postgres)
 	operationIDContainsSettings := strings.Contains(strings.ToLower(result), "setting")
+	operationIDContainsSetup := strings.Contains(strings.ToLower(result), "setup")
 
 	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
@@ -83,9 +84,16 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 			// add a placeholder for "Setting" (noun) so "set" can be removed
 			result = strings.ReplaceAll(result, "Setting", "$___$")
 		}
+		if operationIDContainsSetup && v == "set" {
+			// add a placeholder for "Setup" (noun) so "set" can be removed
+			result = strings.ReplaceAll(result, "Setup", "$____$")
+			result = strings.ReplaceAll(result, "setup", "$_____$")
+		}
 		result = strings.ReplaceAll(result, v, "")
 		result = strings.ReplaceAll(result, ToPascalCase(v), "")
 		result = strings.ReplaceAll(result, "$___$", "Setting")
+		result = strings.ReplaceAll(result, "$____$", "Setup")
+		result = strings.ReplaceAll(result, "$_____$", "setup")
 	}
 
 	resourceTitle := ToPascalCase(result)
