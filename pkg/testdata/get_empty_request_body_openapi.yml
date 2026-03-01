@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    dns_settings:
+      type: object
+      properties:
+        disabled_management_groups:
+          description: Groups whose DNS should not be managed by the service
+          items:
+            type: string
+          type: array
+    vm:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+
+paths:
+  /v2/dns/settings:
+    get:
+      operationId: getDnsSettings
+      summary: Retrieve DNS settings
+      description: Returns a DNS settings object
+      responses:
+        "200":
+          description: A JSON Object of DNS Setting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/dns_settings"
+        "400":
+          description: Bad request
+        "500":
+          description: Internal error
+
+  /v2/vms/{vm_id}/restart:
+    parameters:
+      - name: vm_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: restartVm
+      summary: Restart a VM
+      description: Initiates a restart of the specified VM
+      responses:
+        "204":
+          description: No content
+
+  /v2/vms:
+    get:
+      operationId: listVms
+      summary: List all VMs
+      description: Returns a list of VMs
+      responses:
+        "200":
+          description: A list of VMs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/vm"
+    post:
+      operationId: createVm
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/vm"
+      responses:
+        "201":
+          description: The created VM
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/vm"
