@@ -134,8 +134,8 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 		// ...and its PascalCase equivalent.
 		result = strings.ReplaceAll(result, ToPascalCase(v), "")
 		// Finally, restore preserved nouns.
-		for placeholderId, v := range placeholders {
-			result = strings.ReplaceAll(result, placeholderId, v)
+		for placeholderID, v := range placeholders {
+			result = strings.ReplaceAll(result, placeholderID, v)
 		}
 	}
 
