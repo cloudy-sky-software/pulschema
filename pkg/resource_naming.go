@@ -176,12 +176,12 @@ func getResourceTitleFromRequestSchema(schemaName string, schemaRef *openapi3.Sc
 		title = ToPascalCase(schemaName)
 	} else {
 		parts := strings.Split(schemaName, "_")
-		result := ""
+		var result strings.Builder
 		for _, p := range parts {
-			result += ToPascalCase(p)
+			result .WriteString(ToPascalCase(p))
 		}
 
-		title = result
+		title = result.String()
 	}
 
 	return sanitizeResourceTitle(title)
