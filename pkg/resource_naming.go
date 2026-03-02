@@ -14,13 +14,14 @@ const (
 	keywordPost = "post"
 	keywordSet  = "set"
 
-	nounPostgres         = "Postgres"
-	nounPosture          = "Posture"
-	nounLowerCasePosture = "posture"
-	nounSetting          = "Setting"
-	nounLowerCaseSetting = "setting"
-	nounSetup            = "Setup"
-	nounLowerCaseSetup   = "setup"
+	nounPostgres          = "Postgres"
+	nounLowerCasePostgres = "postgres"
+	nounPosture           = "Posture"
+	nounLowerCasePosture  = "posture"
+	nounSetting           = "Setting"
+	nounLowerCaseSetting  = "setting"
+	nounSetup             = "Setup"
+	nounLowerCaseSetup    = "setup"
 )
 
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
@@ -149,8 +150,8 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": "Delete", "Delete": "Delete", "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": "Get", "Get": "Get"}
 
 func sanitizeResourceTitle(title string) string {
-	titleContainsPostgres := strings.Contains(strings.ToLower(title), nounPostgres)
-	titleContainsPosture := strings.Contains(strings.ToLower(title), nounPosture)
+	titleContainsPostgres := strings.Contains(strings.ToLower(title), nounLowerCasePostgres)
+	titleContainsPosture := strings.Contains(strings.ToLower(title), nounLowerCasePosture)
 	for match, replaceWith := range replaceKeywords {
 		if (titleContainsPostgres || titleContainsPosture) && (match == keywordPost || match == "Post") {
 			continue

@@ -14,7 +14,7 @@ func TestGetResourceTitleFromOperationID_PUToperationIdWithSetting(t *testing.T)
 	assert.Equal(t, "TheTableSetting", getResourceTitleFromOperationID("setTheTableSetting", http.MethodPut, false))
 	assert.Equal(t, "StandardOperationIdName", getResourceTitleFromOperationID("standardOperationIdName", http.MethodPut, false))
 	assert.Equal(t, "TheThing", getResourceTitleFromOperationID("updateTheThing", http.MethodPut, false))
-	assert.Equal(t, "Machines", getResourceTitleFromOperationID("machines_show", "GET", false))
+	assert.Equal(t, "Machines", getResourceTitleFromOperationID("machines_show", http.MethodGet, false))
 }
 
 func TestGetResourceTitleFromOperationID_PUToperationIdWithSetup(t *testing.T) {
