@@ -2,7 +2,10 @@
 
 # Pulschema
 
-Pul(umi) schema from API specs. Learn how to generate a provider using this library: https://buttondown.email/css-blog/archive/create-a-pulumi-provider-from-openapi-spec/.
+Pul(umi) schema from API specs. Learn how to generate a provider using this library: https://buttondown.email/css-blog/archive/create-a-pulumi-provider-from-openapi-spec/. This library is the first part required to fully implement a native Pulumi provider purely based on OpenAPI specs. To use the Pulumi schema successfully, you
+will need to construct HTTP requests based on the resource inputs given by the user. You should consider
+using [`pulumi-provider-framework`](https://github.com/cloudy-sky-software/pulumi-provider-framework) for that.
+
 Use the [template repo](https://github.com/cloudy-sky-software/pulumi-provider-template) to get started quickly.
 
 ## What Is This?
