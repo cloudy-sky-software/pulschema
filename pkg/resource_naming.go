@@ -178,7 +178,7 @@ func getResourceTitleFromRequestSchema(schemaName string, schemaRef *openapi3.Sc
 		parts := strings.Split(schemaName, "_")
 		var result strings.Builder
 		for _, p := range parts {
-			result .WriteString(ToPascalCase(p))
+			result.WriteString(ToPascalCase(p))
 		}
 
 		title = result.String()
