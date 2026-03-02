@@ -8,7 +8,11 @@ import (
 	"github.com/golang/glog"
 )
 
-const postgres = "postgres"
+const (
+	post     = "post"
+	postgres = "postgres"
+	posture  = "posture"
+)
 
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	if useParentResourceAsModule {
@@ -51,7 +55,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
-		replaceKeywords = append(replaceKeywords, "add", "create", "post", "put", "set")
+		replaceKeywords = append(replaceKeywords, "add", "create", post, "put", "set")
 	case http.MethodPut:
 		// Multi-word keywords need to be placed ahead of single word
 		// ones.
@@ -62,7 +66,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	operationIDContainsPostgres := strings.Contains(strings.ToLower(result), postgres)
 	operationIDContainsSettings := strings.Contains(strings.ToLower(result), "setting")
 	operationIDContainsSetup := strings.Contains(strings.ToLower(result), "setup")
-	operationIDContainsPosture := strings.Contains(strings.ToLower(result), "posture")
+	operationIDContainsPosture := strings.Contains(strings.ToLower(result), posture)
 
 	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
@@ -78,7 +82,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	}
 
 	for _, v := range replaceKeywords {
-		if operationIDContainsPostgres && v == "post" {
+		if operationIDContainsPostgres && v == post {
 			continue
 		}
 		if operationIDContainsSettings && v == "set" {
@@ -90,10 +94,10 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 			result = strings.ReplaceAll(result, "Setup", "$____$")
 			result = strings.ReplaceAll(result, "setup", "$_____$")
 		}
-		if operationIDContainsPosture && v == "post" {
+		if operationIDContainsPosture && v == post {
 			// add a placeholder for "Posture" (noun) so "post" can be removed
 			result = strings.ReplaceAll(result, "Posture", "$______$")
-			result = strings.ReplaceAll(result, "posture", "$_______$")
+			result = strings.ReplaceAll(result, posture, "$_______$")
 		}
 		result = strings.ReplaceAll(result, v, "")
 		result = strings.ReplaceAll(result, ToPascalCase(v), "")
@@ -101,7 +105,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 		result = strings.ReplaceAll(result, "$____$", "Setup")
 		result = strings.ReplaceAll(result, "$_____$", "setup")
 		result = strings.ReplaceAll(result, "$______$", "Posture")
-		result = strings.ReplaceAll(result, "$_______$", "posture")
+		result = strings.ReplaceAll(result, "$_______$", posture)
 	}
 
 	resourceTitle := ToPascalCase(result)
@@ -115,9 +119,9 @@ var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "pos
 
 func sanitizeResourceTitle(title string) string {
 	titleContainsPostgres := strings.Contains(strings.ToLower(title), postgres)
-	titleContainsPosture := strings.Contains(strings.ToLower(title), "posture")
+	titleContainsPosture := strings.Contains(strings.ToLower(title), posture)
 	for match, replaceWith := range replaceKeywords {
-		if (titleContainsPostgres || titleContainsPosture) && (match == "post" || match == "Post") {
+		if (titleContainsPostgres || titleContainsPosture) && (match == post || match == "Post") {
 			continue
 		}
 
