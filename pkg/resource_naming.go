@@ -1,17 +1,26 @@
 package pkg
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/golang/glog"
+	"github.com/google/uuid"
 )
 
 const (
-	post     = "post"
-	postgres = "postgres"
-	posture  = "posture"
+	keywordPost = "post"
+	keywordSet  = "set"
+
+	nounPostgres         = "Postgres"
+	nounPosture          = "Posture"
+	nounLowerCasePosture = "posture"
+	nounSetting          = "Setting"
+	nounLowerCaseSetting = "setting"
+	nounSetup            = "Setup"
+	nounLowerCaseSetup   = "setup"
 )
 
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
@@ -44,6 +53,10 @@ func getParentPath(path string) string {
 	return pathSeparator + strings.Join(parts[0:len(parts)-1], pathSeparator)
 }
 
+func getReplacementPlaceholder() string {
+	return fmt.Sprintf("{%s}", uuid.New().String())
+}
+
 func getResourceTitleFromOperationID(originalOperationID, method string, isSeparatedByTypeSpecNamespace bool) string {
 	var replaceKeywords []string
 
@@ -55,7 +68,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
-		replaceKeywords = append(replaceKeywords, "add", "create", post, "put", "set")
+		replaceKeywords = append(replaceKeywords, "add", "create", keywordPost, "put", "set")
 	case http.MethodPut:
 		// Multi-word keywords need to be placed ahead of single word
 		// ones.
@@ -63,10 +76,10 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	}
 
 	result := originalOperationID
-	operationIDContainsPostgres := strings.Contains(strings.ToLower(result), postgres)
-	operationIDContainsSettings := strings.Contains(strings.ToLower(result), "setting")
-	operationIDContainsSetup := strings.Contains(strings.ToLower(result), "setup")
-	operationIDContainsPosture := strings.Contains(strings.ToLower(result), posture)
+	operationIDContainsPostgres := strings.Contains(strings.ToLower(result), strings.ToLower(nounPostgres))
+	operationIDContainsSettings := strings.Contains(strings.ToLower(result), strings.ToLower(nounSetting))
+	operationIDContainsSetup := strings.Contains(strings.ToLower(result), strings.ToLower(nounSetup))
+	operationIDContainsPosture := strings.Contains(strings.ToLower(result), strings.ToLower(nounPosture))
 
 	// TypeSpec-generated operations can have an operation ID separated by the namespace
 	// the operation is defined in.
@@ -82,30 +95,48 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	}
 
 	for _, v := range replaceKeywords {
-		if operationIDContainsPostgres && v == post {
+		if operationIDContainsPostgres && v == keywordPost {
 			continue
 		}
-		if operationIDContainsSettings && v == "set" {
-			// add a placeholder for "Setting" (noun) so "set" can be removed
-			result = strings.ReplaceAll(result, "Setting", "$___$")
+
+		placeholders := make(map[string]string)
+		if operationIDContainsSettings && v == keywordSet {
+			// Add a placeholder for "Setting" (noun) so "set" can be removed.
+			p1 := getReplacementPlaceholder()
+			p2 := getReplacementPlaceholder()
+			placeholders[p1] = nounSetting
+			placeholders[p2] = nounLowerCaseSetting
+
+			result = strings.ReplaceAll(result, nounSetting, p1)
+			result = strings.ReplaceAll(result, nounLowerCaseSetting, p2)
 		}
-		if operationIDContainsSetup && v == "set" {
-			// add a placeholder for "Setup" (noun) so "set" can be removed
-			result = strings.ReplaceAll(result, "Setup", "$____$")
-			result = strings.ReplaceAll(result, "setup", "$_____$")
+		if operationIDContainsSetup && v == keywordSet {
+			p1 := getReplacementPlaceholder()
+			p2 := getReplacementPlaceholder()
+			placeholders[p1] = nounSetup
+			placeholders[p2] = nounLowerCaseSetup
+			// Add a placeholder for "Setup" (noun) so "set" can be removed.
+			result = strings.ReplaceAll(result, nounSetup, p1)
+			result = strings.ReplaceAll(result, nounLowerCaseSetup, p2)
 		}
-		if operationIDContainsPosture && v == post {
-			// add a placeholder for "Posture" (noun) so "post" can be removed
-			result = strings.ReplaceAll(result, "Posture", "$______$")
-			result = strings.ReplaceAll(result, posture, "$_______$")
+		if operationIDContainsPosture && v == keywordPost {
+			p1 := getReplacementPlaceholder()
+			p2 := getReplacementPlaceholder()
+			placeholders[p1] = nounPosture
+			placeholders[p2] = nounLowerCasePosture
+			// Add a placeholder for "Posture" (noun) so "post" can be removed.
+			result = strings.ReplaceAll(result, nounPosture, p1)
+			result = strings.ReplaceAll(result, nounLowerCasePosture, p2)
 		}
+
+		// Now replace the action keyword that matches the HTTP method.
 		result = strings.ReplaceAll(result, v, "")
+		// ...and its PascalCase equivalent.
 		result = strings.ReplaceAll(result, ToPascalCase(v), "")
-		result = strings.ReplaceAll(result, "$___$", "Setting")
-		result = strings.ReplaceAll(result, "$____$", "Setup")
-		result = strings.ReplaceAll(result, "$_____$", "setup")
-		result = strings.ReplaceAll(result, "$______$", "Posture")
-		result = strings.ReplaceAll(result, "$_______$", posture)
+		// Finally, restore preserved nouns.
+		for placeholderId, v := range placeholders {
+			result = strings.ReplaceAll(result, placeholderId, v)
+		}
 	}
 
 	resourceTitle := ToPascalCase(result)
@@ -118,10 +149,10 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": "Delete", "Delete": "Delete", "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": "Get", "Get": "Get"}
 
 func sanitizeResourceTitle(title string) string {
-	titleContainsPostgres := strings.Contains(strings.ToLower(title), postgres)
-	titleContainsPosture := strings.Contains(strings.ToLower(title), posture)
+	titleContainsPostgres := strings.Contains(strings.ToLower(title), nounPostgres)
+	titleContainsPosture := strings.Contains(strings.ToLower(title), nounPosture)
 	for match, replaceWith := range replaceKeywords {
-		if (titleContainsPostgres || titleContainsPosture) && (match == post || match == "Post") {
+		if (titleContainsPostgres || titleContainsPosture) && (match == keywordPost || match == "Post") {
 			continue
 		}
 
