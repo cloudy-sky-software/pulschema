@@ -26,7 +26,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@b7bcab6379029e905e3f389a6bf301f1bc220662
         with:
           # Use a commit hash from https://github.com/golangci/golangci-lint/commits/main.
           version: 2e484ee1089a13d51500f5d1961c1313cbea8ffe
