@@ -294,10 +294,16 @@ github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/oasdiff/kin-openapi v0.0.0-20260210100147-da004e9a862b h1:gC/aJ/grCeVNeFHRYhcD0NkULKDC+QQeWP24DW0hdi8=
 github.com/oasdiff/kin-openapi v0.0.0-20260210100147-da004e9a862b/go.mod h1:fX+Gox+rFMtXFEgXBOb1C2hYzNtVxmPvXDqAqAWFUGM=
+github.com/oasdiff/kin-openapi v0.136.1 h1:x1G9doDyPcagCNXDcMK5dt5yAmIgsSCiK7F5gPUiQdM=
+github.com/oasdiff/kin-openapi v0.136.1/go.mod h1:BMeaLn+GmFJKtHJ31JrgXFt91eZi/q+Og4tr7sq0BzI=
 github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 h1:G7ERwszslrBzRxj//JalHPu/3yz+De2J+4aLtSRlHiY=
 github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037/go.mod h1:2bpvgLBZEtENV5scfDFEtB/5+1M4hkQhDQrccEJ/qGw=
+github.com/oasdiff/yaml v0.0.1 h1:dPrn0F2PJ7HdzHPndJkArvB2Fw0cwgFdVUKCEkoFuds=
+github.com/oasdiff/yaml v0.0.1/go.mod h1:r8bgVgpWT5iIN/AgP0GljFvB6CicK+yL1nIAbm+8/QQ=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletIKwUIt4x3t8n2SxavmoclizMb8c=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
+github.com/oasdiff/yaml3 v0.0.1 h1:kReOSraQLTxuuGNX9aNeJ7tcsvUB2MS+iupdUrWe4Z0=
+github.com/oasdiff/yaml3 v0.0.1/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/onsi/gomega v1.34.1 h1:EUMJIKUjM8sKjYbtxQI9A4z2o+rruxnzNvpknOXie6k=
 github.com/onsi/gomega v1.34.1/go.mod h1:kU1QgUvBDLXBJq618Xvm2LUX6rSAfRaFRTcdOeDLwwY=
 github.com/opentracing/basictracer-go v1.1.0 h1:Oa1fTSBvAl8pa3U+IJYqrKm0NALwH9OsgwOqDv4xJW0=
