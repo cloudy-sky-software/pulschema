@@ -1,6 +1,6 @@
 module github.com/cloudy-sky-software/pulschema
 
-go 1.25.7
+go 1.25.8
 
 // github.com/getkin/kin-openapi is replaced with github.com/oasdiff/kin-openapi.
 // See replace directive at the bottom of this file.
@@ -9,7 +9,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.227.0
-	github.com/pulumi/pulumi/sdk/v3 v3.227.0
+	github.com/pulumi/pulumi/sdk/v3 v3.228.0
 	github.com/stretchr/testify v1.11.1
 )
 
