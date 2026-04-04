@@ -81,8 +81,8 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
-	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
-	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
+	github.com/oasdiff/yaml v0.0.7 // indirect
+	github.com/oasdiff/yaml3 v0.0.6 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
@@ -147,4 +147,4 @@ require (
 
 require github.com/pgavlin/fx/v2 v2.0.10 // indirect
 
-replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.0.0-20260210100147-da004e9a862b
+replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.136.8
