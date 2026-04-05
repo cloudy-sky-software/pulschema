@@ -244,7 +244,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				// as the read endpoint for each of the types in the mapping.
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
-						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
+						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
 						title := getResourceTitleFromRequestSchema(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, title)
@@ -320,7 +320,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				schemaNames := codegen.NewStringSet()
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
-						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
+						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
 						schemaNames.Add(schemaName)
 					}
 				}
@@ -382,7 +382,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			if resourceType.Discriminator != nil {
 				for _, ref := range resourceType.Discriminator.Mapping {
-					schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
+					schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
 					dResource := o.Doc.Components.Schemas[schemaName]
 					resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
@@ -425,7 +425,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				if resourceType.Discriminator != nil {
 					for _, ref := range resourceType.Discriminator.Mapping {
-						schemaName := strings.TrimPrefix(ref, componentsSchemaRefPrefix)
+						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
 						dResource := o.Doc.Components.Schemas[schemaName]
 						resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
@@ -762,7 +762,7 @@ func (o *OpenAPIContext) gatherResource(
 
 	if resourceRequestType.Discriminator != nil {
 		for discriminatedValue, mappingRef := range resourceRequestType.Discriminator.Mapping {
-			schemaName := strings.TrimPrefix(mappingRef, componentsSchemaRefPrefix)
+			schemaName := strings.TrimPrefix(mappingRef.Ref, componentsSchemaRefPrefix)
 			typeSchema, ok := o.Doc.Components.Schemas[schemaName]
 			if !ok {
 				return errors.Errorf("%s not found in api schemas for discriminated type in path %s", schemaName, apiPath)
@@ -775,7 +775,7 @@ func (o *OpenAPIContext) gatherResource(
 			discriminatedResourceName := ToPascalCase(discriminatedValue)
 			if resourceResponseType != nil && resourceResponseType.Discriminator != nil {
 				responseSchemaRef := resourceResponseType.Discriminator.Mapping[discriminatedValue]
-				responseSchemaName := strings.TrimPrefix(responseSchemaRef, componentsSchemaRefPrefix)
+				responseSchemaName := strings.TrimPrefix(responseSchemaRef.Ref, componentsSchemaRefPrefix)
 				responseTypeSchema, ok := o.Doc.Components.Schemas[responseSchemaName]
 				if !ok {
 					return errors.Errorf("response schema type %s not found", responseSchemaName)
@@ -1260,7 +1260,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 			mapping := make(map[string]string)
 			for discriminatorProperyValue, apiSchemaRef := range propSchema.Value.Discriminator.Mapping {
-				resourceTypeName := strings.TrimPrefix(apiSchemaRef, "#/components/schemas/")
+				resourceTypeName := strings.TrimPrefix(apiSchemaRef.Ref, "#/components/schemas/")
 				resourceTypeName = ToPascalCase(resourceTypeName)
 				for _, typeSpec := range types {
 					if !strings.Contains(typeSpec.Ref, resourceTypeName) {
