@@ -81,8 +81,8 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect
-	github.com/oasdiff/yaml v0.0.8 // indirect
-	github.com/oasdiff/yaml3 v0.0.8 // indirect
+	github.com/oasdiff/yaml v0.0.9 // indirect
+	github.com/oasdiff/yaml3 v0.0.9 // indirect
 	github.com/opentracing/basictracer-go v1.1.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
@@ -150,4 +150,4 @@ require github.com/pgavlin/fx/v2 v2.0.10 // indirect
 // Overridden with the latest commit/release from
 // https://github.com/oasdiff/kin-openapi for the
 // branch `feat/openapi-3.1-support`.
-replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.137.0-openapi31.beta.3
+replace github.com/getkin/kin-openapi => github.com/oasdiff/kin-openapi v0.137.0-openapi31.beta.3-oasdiff
