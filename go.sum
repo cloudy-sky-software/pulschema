@@ -154,6 +154,8 @@ github.com/go-git/go-git-fixtures/v4 v4.3.2-0.20231010084843-55a94097c399 h1:eMj
 github.com/go-git/go-git-fixtures/v4 v4.3.2-0.20231010084843-55a94097c399/go.mod h1:1OCfN199q1Jm3HZlxleg+Dw/mwps2Wbk9frAWm+4FII=
 github.com/go-git/go-git/v5 v5.17.1 h1:WnljyxIzSj9BRRUlnmAU35ohDsjRK0EKmL0evDqi5Jk=
 github.com/go-git/go-git/v5 v5.17.1/go.mod h1:pW/VmeqkanRFqR6AljLcs7EA7FbZaN5MQqO7oZADXpo=
+github.com/go-git/go-git/v5 v5.17.2 h1:B+nkdlxdYrvyFK4GPXVU8w1U+YkbsgciIR7f2sZJ104=
+github.com/go-git/go-git/v5 v5.17.2/go.mod h1:pW/VmeqkanRFqR6AljLcs7EA7FbZaN5MQqO7oZADXpo=
 github.com/go-jose/go-jose/v3 v3.0.4 h1:Wp5HA7bLQcKnf6YYao/4kpRpVMp/yf6+pJKV8WFSaNY=
 github.com/go-jose/go-jose/v3 v3.0.4/go.mod h1:5b+7YgP7ZICgJDBdfjZaIt+H/9L9T/YQrVfLAMboGkQ=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
@@ -334,10 +336,14 @@ github.com/pulumi/appdash v0.0.0-20231130102222-75f619a67231 h1:vkHw5I/plNdTr435
 github.com/pulumi/appdash v0.0.0-20231130102222-75f619a67231/go.mod h1:murToZ2N9hNJzewjHBgfFdXhZKjY3z5cYC1VXk+lbFE=
 github.com/pulumi/esc v0.22.0 h1:Kbk0kIPsoIu6vnLgKtiE8AKRfl8B8bg6adiQuwJiBjA=
 github.com/pulumi/esc v0.22.0/go.mod h1:mkghIFn/TvN3XnP4jmCB4U5BG1I4UjGluARi39ckrCE=
+github.com/pulumi/esc v0.23.0 h1:5lOXO+5vvXOEQxXw7cTuYhjg9lVng23f9XNLWDR9EP4=
+github.com/pulumi/esc v0.23.0/go.mod h1:mkghIFn/TvN3XnP4jmCB4U5BG1I4UjGluARi39ckrCE=
 github.com/pulumi/inflector v0.2.1 h1:bqyiish3tq//vLeLiEstSFE5K7RNjy/ce47ed4QATu8=
 github.com/pulumi/inflector v0.2.1/go.mod h1:HUFCjcPTz96YtTuUlwG3i3EZG4WlniBvR9bd+iJxCUY=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.102.0 h1:5jMf8Tk+nTv4U3GFL8h7Nn/RN9Wo/uwCoj8j+c4/lf8=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.102.0/go.mod h1:s83nigApWw9uBGOLc3LlbJKWOw5IRhIqTe2IJMij9KQ=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.102.1 h1:Jt0W90jeFcYBwxvK6NZ3BMBmhuT0Sh7xz+2ijpjUr0o=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.102.1/go.mod h1:jfgRC76AKgNNXZ8w1xcHsOYSEaeSX9mT6bVIwrBBnjI=
 github.com/pulumi/pulumi/pkg/v3 v3.229.0 h1:bGna3zTOFLUpUd0M+GuLspOxjSaAhawXygG6+IAwajw=
 github.com/pulumi/pulumi/pkg/v3 v3.229.0/go.mod h1:pJ0GGK1+VpLZlTim1/Lqm/tZ6/XDJa8gHDdOtRJR5to=
 github.com/pulumi/pulumi/sdk/v3 v3.229.0 h1:jsAw5lXiHN22YQeo4bZHZBAG/DUlEnzsFWg5MuHnTSs=
