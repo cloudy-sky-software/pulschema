@@ -4,17 +4,15 @@ package pkg
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 
-	"github.com/golang/glog"
-
 	"github.com/pkg/errors"
 
-	dotnetgen "github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3/codegen"
 	"github.com/pulumi/pulumi/pkg/v3/codegen"
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 
@@ -34,6 +32,10 @@ const (
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
+
+type csharpPropertyInfo struct {
+	Name string `json:"name,omitempty"`
+}
 
 // defaultEmptySchemaDoNotMutate is used to identify GET endpoints
 // with no response schema. Do not mutate.
@@ -142,7 +144,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.exclusionEvaluator = evaluator
 
 	if evaluator.Count() > 0 {
-		glog.V(1).Infof("Loaded %d exclusion rules", evaluator.Count())
+		slog.Debug("Loaded exclusion rules", "count", evaluator.Count())
 	}
 
 	o.resourceCRUDMap = make(map[string]*CRUDOperationsMap)
@@ -187,7 +189,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// Skip this entire path if ALL methods are excluded
 		allMethodsExcluded := len(methods) > 0 && allExcluded(o.exclusionEvaluator, methods, path)
 		if allMethodsExcluded {
-			glog.V(2).Infof("Excluding all methods for path %s", path)
+			slog.Debug("Excluding all methods for path", "path", path)
 			continue
 		}
 
@@ -195,17 +197,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			csharpNamespaces[module] = moduleToPascalCase(module)
 		}
 
-		glog.V(3).Infof("Processing path %s as %s\n", path, currentPath)
+		slog.Debug("Processing path", "path", path, "currentPath", currentPath)
 
 		if pathItem.Get != nil {
 			if o.exclusionEvaluator.ShouldExclude("GET", path) {
-				glog.V(2).Infof("Excluding GET %s", path)
+				slog.Debug("Excluding GET", "path", path)
 				continue
 			}
 
 			contract.Assertf(pathItem.Get.OperationID != "", "operationId is missing for path GET %s", currentPath)
 
-			glog.V(3).Infof("GET: Parent path for %s is %s\n", currentPath, parentPath)
+			slog.Debug("GET: Parent path", "currentPath", currentPath, "parentPath", parentPath)
 
 			// GET endpoints may not have a response body at all.
 			// For example, ad-hoc actions like restarting a VM or
@@ -291,13 +293,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		if pathItem.Patch != nil {
 			if o.exclusionEvaluator.ShouldExclude("PATCH", path) {
-				glog.V(2).Infof("Excluding PATCH %s", path)
+				slog.Debug("Excluding PATCH", "path", path)
 				continue
 			}
 
 			contract.Assertf(pathItem.Patch.OperationID != "", "operationId is missing for path PATCH %s", currentPath)
 
-			glog.V(3).Infof("PATCH: Parent path for %s is %s\n", currentPath, parentPath)
+			slog.Debug("PATCH: Parent path", "currentPath", currentPath, "parentPath", parentPath)
 
 			jsonReq := pathItem.Patch.RequestBody.Value.Content.Get(jsonMimeType)
 			if jsonReq.Schema.Value == nil {
@@ -355,13 +357,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		if pathItem.Put != nil {
 			if o.exclusionEvaluator.ShouldExclude("PUT", path) {
-				glog.V(2).Infof("Excluding PUT %s", path)
+				slog.Debug("Excluding PUT", "path", path)
 				continue
 			}
 
 			contract.Assertf(pathItem.Put.OperationID != "", "operationId is missing for path PUT %s", currentPath)
 
-			glog.V(3).Infof("PUT: Parent path for %s is %s\n", currentPath, parentPath)
+			slog.Debug("PUT: Parent path", "currentPath", currentPath, "parentPath", parentPath)
 
 			jsonReq := pathItem.Put.RequestBody.Value.Content.Get(jsonMimeType)
 			if jsonReq.Schema.Value == nil {
@@ -397,13 +399,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 		if pathItem.Delete != nil {
 			if o.exclusionEvaluator.ShouldExclude("DELETE", path) {
-				glog.V(2).Infof("Excluding DELETE %s", path)
+				slog.Debug("Excluding DELETE", "path", path)
 				continue
 			}
 
 			contract.Assertf(pathItem.Delete.OperationID != "", "operationId is missing for path DELETE %s", currentPath)
 
-			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
+			slog.Debug("DELETE: Parent path", "currentPath", currentPath, "parentPath", parentPath)
 
 			setDeleteOperationMapping := func(tok string) {
 				if existing, ok := o.resourceCRUDMap[tok]; ok {
@@ -450,7 +452,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 
 		if o.exclusionEvaluator.ShouldExclude("POST", path) {
-			glog.V(2).Infof("Excluding POST %s", path)
+			slog.Debug("Excluding POST", "path", path)
 			continue
 		}
 
@@ -561,7 +563,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, module, funcName string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
 	if funcName == "listReservedIPs" {
-		glog.Info("HELLO!")
+		slog.Info("HELLO!")
 	}
 	funcPkgCtx := &resourceContext{
 		mod:               module,
@@ -796,7 +798,7 @@ func (o *OpenAPIContext) gatherResource(
 	}
 
 	if len(resourceRequestType.OneOf) > 0 {
-		glog.Infof("OneOf definition missing discriminator. Will treat it as AllOf for resource %s. All input properties will be optional.", resourceName)
+		slog.Info("OneOf definition missing discriminator. Will treat it as AllOf. All input properties will be optional.", "resource", resourceName)
 		schemaRefs := resourceRequestType.OneOf
 		for _, schemaRef := range schemaRefs {
 			schemaRef.Value.Required = nil
@@ -986,7 +988,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		// (or should) have this property already,
 		// so ignore it.
 		if propSchema == nil {
-			glog.Warningf("Schema not found for required property: %s (type: %s)", requiredProp, resourceName)
+			slog.Warn("Schema not found for required property", "property", requiredProp, "type", resourceName)
 			continue
 		}
 
@@ -1144,7 +1146,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	if languageName == ctx.resourceName {
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+			"csharp": rawMessage(csharpPropertyInfo{
 				Name: languageName + "Value",
 			}),
 		}
@@ -1153,7 +1155,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		// and $ is an invalid character in the generated names.
 		// Replace them with `Ref` and `Schema`.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+			"csharp": rawMessage(csharpPropertyInfo{
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
 			}),
 		}
@@ -1411,7 +1413,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		if ToPascalCase(sdkName) == parentName {
 			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				"csharp": rawMessage(csharpPropertyInfo{
 					Name: ToPascalCase(sdkName) + "Value",
 				}),
 			}
@@ -1458,7 +1460,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 
 	for _, schemaRef := range allOf {
 		if schemaRef.Ref == "" && !schemaRef.Value.Type.Is(openapi3.TypeObject) {
-			glog.Warningf("Prop type %s uses allOf schema but one of the schema refs is invalid", parentName)
+			slog.Warn("Prop type uses allOf schema but one of the schema refs is invalid", "parentName", parentName)
 			continue
 		}
 
