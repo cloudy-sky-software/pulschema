@@ -18,7 +18,7 @@ func TestPutCreateResourceWithPathParam(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": testCSharpProviderName,
 	}
 
 	metadata, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)

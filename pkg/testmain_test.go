@@ -14,6 +14,8 @@ import (
 
 const packageName = "fake-package"
 
+const testCSharpProviderName = "Provider"
+
 var testOpenAPIDocBytes []byte
 var testOpenAPIDoc *openapi3.T
 

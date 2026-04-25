@@ -18,7 +18,7 @@ func TestSecretProperty(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": testCSharpProviderName,
 	}
 
 	_, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)
