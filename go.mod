@@ -5,6 +5,7 @@ go 1.26
 require (
 	github.com/getkin/kin-openapi v0.136.0
 	github.com/pkg/errors v0.9.1
+	github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.103.2-0.20260424115536-036e8b30f046
 	github.com/pulumi/pulumi/pkg/v3 v3.232.0
 	github.com/pulumi/pulumi/sdk/v3 v3.232.0
 	github.com/stretchr/testify v1.11.1
@@ -137,4 +138,7 @@ require (
 	lukechampine.com/frand v1.5.1 // indirect
 )
 
-require github.com/pgavlin/fx/v2 v2.0.12 // indirect
+require (
+	github.com/deckarep/golang-set/v2 v2.5.0 // indirect
+	github.com/pgavlin/fx/v2 v2.0.12 // indirect
+)

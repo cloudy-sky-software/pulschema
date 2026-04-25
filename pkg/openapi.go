@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	dotnetgen "github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3/codegen"
 	"github.com/pulumi/pulumi/pkg/v3/codegen"
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 
@@ -32,10 +33,6 @@ const (
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
-
-type csharpPropertyInfo struct {
-	Name string `json:"name,omitempty"`
-}
 
 // defaultEmptySchemaDoNotMutate is used to identify GET endpoints
 // with no response schema. Do not mutate.
@@ -1146,7 +1143,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	if languageName == ctx.resourceName {
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(csharpPropertyInfo{
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: languageName + "Value",
 			}),
 		}
@@ -1155,7 +1152,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		// and $ is an invalid character in the generated names.
 		// Replace them with `Ref` and `Schema`.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(csharpPropertyInfo{
+			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
 			}),
 		}
@@ -1413,7 +1410,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		if ToPascalCase(sdkName) == parentName {
 			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(csharpPropertyInfo{
+				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
 					Name: ToPascalCase(sdkName) + "Value",
 				}),
 			}
