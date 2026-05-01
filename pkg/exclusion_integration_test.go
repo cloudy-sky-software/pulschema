@@ -1,11 +1,14 @@
 package pkg
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/cloudy-sky-software/pulschema/pkg/exclusions"
 	"github.com/stretchr/testify/assert"
 )
+
+const testDebugWildcardPath = "/debug/*"
 
 // TestExclusionIntegration tests the new exclusion feature with OpenAPIContext
 func TestExclusionIntegration(t *testing.T) {
@@ -21,10 +24,10 @@ func TestExclusionIntegration(t *testing.T) {
 		assert.NotNil(t, evaluator)
 
 		// Test exclusions
-		assert.True(t, evaluator.ShouldExclude("GET", "/health"))
-		assert.True(t, evaluator.ShouldExclude("POST", "/health"))
-		assert.True(t, evaluator.ShouldExclude("GET", "/metrics"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/users"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/health"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodPost, "/health"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/metrics"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/users"))
 	})
 
 	// Test 2: New wildcard exclusions
@@ -41,10 +44,10 @@ func TestExclusionIntegration(t *testing.T) {
 		evaluator, err := exclusions.NewExclusionEvaluator(ctx.Exclusions, nil)
 		assert.NoError(t, err)
 
-		assert.True(t, evaluator.ShouldExclude("GET", "/internal/debug"))
-		assert.True(t, evaluator.ShouldExclude("POST", "/internal/debug"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/internal/debug/deep"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/users"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/internal/debug"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodPost, "/internal/debug"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/internal/debug/deep"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/users"))
 	})
 
 	// Test 3: Method-specific exclusions
@@ -52,8 +55,8 @@ func TestExclusionIntegration(t *testing.T) {
 		ctx := &OpenAPIContext{
 			Exclusions: []exclusions.Exclusion{
 				{
-					Method:      "GET",
-					PathPattern: "/debug/*",
+					Method:      http.MethodGet,
+					PathPattern: testDebugWildcardPath,
 					PatternType: exclusions.PatternTypeWildcard,
 				},
 			},
@@ -62,9 +65,9 @@ func TestExclusionIntegration(t *testing.T) {
 		evaluator, err := exclusions.NewExclusionEvaluator(ctx.Exclusions, nil)
 		assert.NoError(t, err)
 
-		assert.True(t, evaluator.ShouldExclude("GET", "/debug/metrics"))
-		assert.False(t, evaluator.ShouldExclude("POST", "/debug/metrics"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/debug"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/debug/metrics"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodPost, "/debug/metrics"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/debug"))
 	})
 
 	// Test 4: Regex exclusions
@@ -81,10 +84,10 @@ func TestExclusionIntegration(t *testing.T) {
 		evaluator, err := exclusions.NewExclusionEvaluator(ctx.Exclusions, nil)
 		assert.NoError(t, err)
 
-		assert.True(t, evaluator.ShouldExclude("GET", "/api/v1/test/endpoint"))
-		assert.True(t, evaluator.ShouldExclude("POST", "/api/v2/test/resource"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/vX/test/endpoint"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/v1/prod/endpoint"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/api/v1/test/endpoint"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodPost, "/api/v2/test/resource"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/vX/test/endpoint"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/v1/prod/endpoint"))
 	})
 
 	// Test 5: Mixed configuration
@@ -93,8 +96,8 @@ func TestExclusionIntegration(t *testing.T) {
 			ExcludedPaths: []string{"/health"},
 			Exclusions: []exclusions.Exclusion{
 				{
-					Method:      "GET",
-					PathPattern: "/debug/*",
+					Method:      http.MethodGet,
+					PathPattern: testDebugWildcardPath,
 					PatternType: exclusions.PatternTypeWildcard,
 				},
 				{
@@ -108,16 +111,16 @@ func TestExclusionIntegration(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Legacy exclusion
-		assert.True(t, evaluator.ShouldExclude("GET", "/health"))
-		assert.True(t, evaluator.ShouldExclude("POST", "/health"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/health"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodPost, "/health"))
 
 		// Method-specific exclusion
-		assert.True(t, evaluator.ShouldExclude("GET", "/debug/metrics"))
-		assert.False(t, evaluator.ShouldExclude("POST", "/debug/metrics"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/debug/metrics"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodPost, "/debug/metrics"))
 
 		// Wildcard exclusion (all methods)
-		assert.True(t, evaluator.ShouldExclude("GET", "/internal/a/b/c"))
-		assert.True(t, evaluator.ShouldExclude("DELETE", "/internal/x/y/z"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/internal/a/b/c"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodDelete, "/internal/x/y/z"))
 	})
 
 	// Test 6: Invalid configuration error handling
@@ -146,8 +149,8 @@ func TestExclusionIntegration(t *testing.T) {
 				},
 				// Exclude GET requests to debug endpoints
 				{
-					Method:      "GET",
-					PathPattern: "/debug/*",
+					Method:      http.MethodGet,
+					PathPattern: testDebugWildcardPath,
 					PatternType: exclusions.PatternTypeWildcard,
 				},
 				// Exclude versioned test endpoints using regex
@@ -157,12 +160,12 @@ func TestExclusionIntegration(t *testing.T) {
 				},
 				// Exclude specific admin operations
 				{
-					Method:      "POST",
+					Method:      http.MethodPost,
 					PathPattern: "/admin/users",
 					PatternType: exclusions.PatternTypeExact,
 				},
 				{
-					Method:      "DELETE",
+					Method:      http.MethodDelete,
 					PathPattern: "/admin/users",
 					PatternType: exclusions.PatternTypeExact,
 				},
@@ -174,14 +177,14 @@ func TestExclusionIntegration(t *testing.T) {
 		assert.Equal(t, 5, evaluator.Count())
 
 		// Test each exclusion
-		assert.True(t, evaluator.ShouldExclude("GET", "/internal/secret"))
-		assert.True(t, evaluator.ShouldExclude("GET", "/debug/metrics"))
-		assert.False(t, evaluator.ShouldExclude("POST", "/debug/metrics"))
-		assert.True(t, evaluator.ShouldExclude("GET", "/api/v1/test/foo"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/api/v1/prod/foo"))
-		assert.True(t, evaluator.ShouldExclude("POST", "/admin/users"))
-		assert.True(t, evaluator.ShouldExclude("DELETE", "/admin/users"))
-		assert.False(t, evaluator.ShouldExclude("GET", "/admin/users"))
-		assert.False(t, evaluator.ShouldExclude("PATCH", "/admin/users"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/internal/secret"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/debug/metrics"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodPost, "/debug/metrics"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodGet, "/api/v1/test/foo"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/api/v1/prod/foo"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodPost, "/admin/users"))
+		assert.True(t, evaluator.ShouldExclude(http.MethodDelete, "/admin/users"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodGet, "/admin/users"))
+		assert.False(t, evaluator.ShouldExclude(http.MethodPatch, "/admin/users"))
 	})
 }

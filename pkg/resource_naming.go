@@ -2,11 +2,11 @@ package pkg
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/golang/glog"
 	"github.com/google/uuid"
 )
 
@@ -142,7 +142,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 
 	resourceTitle := ToPascalCase(result)
 
-	glog.Infof("converted operation ID %s to resource title %s\n", originalOperationID, resourceTitle)
+	slog.Info("converted operation ID to resource title", "operationID", originalOperationID, "resourceTitle", resourceTitle)
 
 	return resourceTitle
 }

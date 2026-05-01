@@ -16,7 +16,7 @@ func TestGetEmptyResponseBody(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": testCSharpProviderName,
 	}
 
 	providerMetadata, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)
