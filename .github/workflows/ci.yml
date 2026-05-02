@@ -29,7 +29,7 @@ jobs:
         uses: golangci/golangci-lint-action@36fe29c8f9dc696b104db0f7d49d1a87d2bbcd5b
         with:
           # Use a commit hash from https://github.com/golangci/golangci-lint/commits/main.
-          version: v2.11.4
+          version: v2.12.1
           install-mode: goinstall
           args: --config=.golangci.yml --timeout=10m
 
