@@ -7,7 +7,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
 	github.com/pulumi/pulumi/pkg/v3 v3.230.0
-	github.com/pulumi/pulumi/sdk/v3 v3.230.0
+	github.com/pulumi/pulumi/sdk/v3 v3.235.0
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -143,4 +143,4 @@ require (
 	lukechampine.com/frand v1.5.1 // indirect
 )
 
-require github.com/pgavlin/fx/v2 v2.0.10 // indirect
+require github.com/pgavlin/fx/v2 v2.0.12 // indirect
