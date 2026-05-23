@@ -138,6 +138,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/getkin/kin-openapi v0.138.0 h1:ebfE0JAmF6AqHrNBy1KO3Fs68K9tPs48HalvLPo7Rv4=
 github.com/getkin/kin-openapi v0.138.0/go.mod h1:vUYWaKyMqj7PfTybelXtLuLN9tReS12vxnzMRK+z2GY=
+github.com/getkin/kin-openapi v0.139.0 h1:pBFXcZJFwz9J1X64jzxlOoNgFm+TF7kNrs9+HJVN6Ic=
+github.com/getkin/kin-openapi v0.139.0/go.mod h1:NGxPfE4PwS/TRXEbyx2RrxDFPZvxcWw31Tw8XXjPZLs=
 github.com/git-pkgs/manifests v0.4.1 h1:CWml+TrRXVzrfNJ2pTNKLqyi+9y/BFiQP/BX3pL4pPQ=
 github.com/git-pkgs/manifests v0.4.1/go.mod h1:7SPFwU9diUG1Az682/p4ZupHJkfpbWKwRvNPwCcOeVs=
 github.com/git-pkgs/packageurl-go v0.3.1 h1:WM3RBABQZLaRBxgKyYughc3cVBE8KyQxbSC6Jt5ak7M=
@@ -304,8 +306,12 @@ github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/oasdiff/yaml v0.0.9 h1:zQOvd2UKoozsSsAknnWoDJlSK4lC0mpmjfDsfqNwX48=
 github.com/oasdiff/yaml v0.0.9/go.mod h1:8lvhgJG4xiKPj3HN5lDow4jZHPlx1i7dIwzkdAo6oAM=
+github.com/oasdiff/yaml v0.1.0 h1:0bqZjfKc/8S9urj4JuwepX41WX9EoA6ifhU3SV06cXg=
+github.com/oasdiff/yaml v0.1.0/go.mod h1:kOlRmMdL2X3vucLCEQO5u61SU22RysnfXvcttrZA1O0=
 github.com/oasdiff/yaml3 v0.0.12 h1:75urAtPeDg2/iDEWwzNrLOWxI9N/dCh81nTTJtokt2M=
 github.com/oasdiff/yaml3 v0.0.12/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
+github.com/oasdiff/yaml3 v0.0.13 h1:06svmvOHOVBqF81+sY2EUScvUI/iS/vl2VIeUUxZQwg=
+github.com/oasdiff/yaml3 v0.0.13/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/onsi/gomega v1.34.1 h1:EUMJIKUjM8sKjYbtxQI9A4z2o+rruxnzNvpknOXie6k=
 github.com/onsi/gomega v1.34.1/go.mod h1:kU1QgUvBDLXBJq618Xvm2LUX6rSAfRaFRTcdOeDLwwY=
 github.com/opentracing/basictracer-go v1.1.0 h1:Oa1fTSBvAl8pa3U+IJYqrKm0NALwH9OsgwOqDv4xJW0=
