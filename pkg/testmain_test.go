@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	packageName        = "fake-package"
-	providerNamespace  = "Provider"
+	packageName       = "fake-package"
+	providerNamespace = "Provider"
 )
 
 var testOpenAPIDocBytes []byte
