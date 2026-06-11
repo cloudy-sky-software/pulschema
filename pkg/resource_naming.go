@@ -22,6 +22,8 @@ const (
 	nounLowerCaseSetting  = "setting"
 	nounSetup             = "Setup"
 	nounLowerCaseSetup    = "setup"
+
+	titleDelete = "Delete"
 )
 
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
@@ -147,7 +149,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	return resourceTitle
 }
 
-var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": "Delete", "Delete": "Delete", "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": "Get", "Get": "Get"}
+var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": titleDelete, titleDelete: titleDelete, "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": "Get", "Get": "Get"}
 
 func sanitizeResourceTitle(title string) string {
 	titleContainsPostgres := strings.Contains(strings.ToLower(title), nounLowerCasePostgres)

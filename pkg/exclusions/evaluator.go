@@ -2,6 +2,7 @@ package exclusions
 
 import (
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 )
@@ -98,7 +99,7 @@ func validateExclusion(excl *Exclusion) error {
 	// Validate method if specified.
 	if excl.Method != "" {
 		method := strings.ToUpper(excl.Method)
-		validMethods := []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE"}
+		validMethods := []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodHead, http.MethodOptions, http.MethodConnect, http.MethodTrace}
 		valid := slices.Contains(validMethods, method)
 		if !valid {
 			return fmt.Errorf("invalid HTTP method: %s", excl.Method)

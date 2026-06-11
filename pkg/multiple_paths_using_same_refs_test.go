@@ -21,7 +21,7 @@ func TestMultiplePathsUsingSameRef(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": providerNamespace,
 	}
 
 	count := 0

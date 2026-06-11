@@ -1,7 +1,21 @@
 package exclusions
 
 import (
+	"net/http"
 	"testing"
+)
+
+const (
+	pathAPIUsers       = "/api/users"
+	pathAPIPosts       = "/api/posts"
+	pathAPIUsersWild   = "/api/users/*"
+	pathAPIUsers123    = "/api/users/123"
+	pathAPIItems       = "/api/items"
+	pathAPIV1UsersWild = "/api/v1/users/*"
+	pathInternalGlob   = "/internal/**"
+	pathInternalDebug  = "/internal/debug"
+	invalidStr         = "invalid"
+	invalidBracketStr  = "[invalid"
 )
 
 func TestNewExclusionEvaluator(t *testing.T) {
@@ -20,23 +34,23 @@ func TestNewExclusionEvaluator(t *testing.T) {
 		},
 		{
 			name:        "only legacy paths",
-			legacyPaths: []string{"/api/users", "/api/posts"},
+			legacyPaths: []string{pathAPIUsers, pathAPIPosts},
 			wantCount:   2,
 		},
 		{
 			name: "only new exclusions",
 			exclusions: []Exclusion{
-				{PathPattern: "/api/users/*", PatternType: PatternTypeWildcard},
-				{Method: "GET", PathPattern: "/api/posts", PatternType: PatternTypeExact},
+				{PathPattern: pathAPIUsersWild, PatternType: PatternTypeWildcard},
+				{Method: http.MethodGet, PathPattern: pathAPIPosts, PatternType: PatternTypeExact},
 			},
 			wantCount: 2,
 		},
 		{
 			name: "mixed legacy and new",
 			exclusions: []Exclusion{
-				{PathPattern: "/api/users/*"},
+				{PathPattern: pathAPIUsersWild},
 			},
-			legacyPaths: []string{"/api/posts"},
+			legacyPaths: []string{pathAPIPosts},
 			wantCount:   2,
 		},
 		{
@@ -49,38 +63,38 @@ func TestNewExclusionEvaluator(t *testing.T) {
 		{
 			name: "invalid exclusion - invalid method",
 			exclusions: []Exclusion{
-				{Method: "INVALID", PathPattern: "/api/users"},
+				{Method: "INVALID", PathPattern: pathAPIUsers},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid exclusion - invalid pattern type",
 			exclusions: []Exclusion{
-				{PathPattern: "/api/users", PatternType: "invalid"},
+				{PathPattern: pathAPIUsers, PatternType: PatternType(invalidStr)},
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid exclusion - invalid regex",
 			exclusions: []Exclusion{
-				{PathPattern: "[invalid", PatternType: PatternTypeRegex},
+				{PathPattern: invalidBracketStr, PatternType: PatternTypeRegex},
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid methods",
 			exclusions: []Exclusion{
-				{Method: "GET", PathPattern: "/api/users"},
-				{Method: "post", PathPattern: "/api/posts"}, // lowercase should work
-				{Method: "PUT", PathPattern: "/api/items"},
-				{Method: "PATCH", PathPattern: "/api/items"},
-				{Method: "DELETE", PathPattern: "/api/items"},
+				{Method: http.MethodGet, PathPattern: pathAPIUsers},
+				{Method: "post", PathPattern: pathAPIPosts}, // lowercase should work
+				{Method: http.MethodPut, PathPattern: pathAPIItems},
+				{Method: http.MethodPatch, PathPattern: pathAPIItems},
+				{Method: http.MethodDelete, PathPattern: pathAPIItems},
 			},
 			wantCount: 5,
 		},
 		{
 			name:        "ignore empty legacy paths",
-			legacyPaths: []string{"", "/api/users", ""},
+			legacyPaths: []string{"", pathAPIUsers, ""},
 			wantCount:   1,
 		},
 	}
@@ -116,64 +130,64 @@ func TestExclusionEvaluator_ShouldExclude(t *testing.T) {
 	}{
 		{
 			name:        "legacy exact match",
-			legacyPaths: []string{"/api/users"},
+			legacyPaths: []string{pathAPIUsers},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/users", true},
-				{"POST", "/api/users", true},
-				{"GET", "/api/users/123", false},
-				{"GET", "/api/posts", false},
+				{http.MethodGet, pathAPIUsers, true},
+				{http.MethodPost, pathAPIUsers, true},
+				{http.MethodGet, pathAPIUsers123, false},
+				{http.MethodGet, pathAPIPosts, false},
 			},
 		},
 		{
 			name: "wildcard pattern - all methods",
 			exclusions: []Exclusion{
-				{PathPattern: "/api/users/*"},
+				{PathPattern: pathAPIUsersWild},
 			},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/users/123", true},
-				{"POST", "/api/users/123", true},
-				{"DELETE", "/api/users/123", true},
-				{"GET", "/api/users", false},
-				{"GET", "/api/users/123/posts", false},
+				{http.MethodGet, pathAPIUsers123, true},
+				{http.MethodPost, pathAPIUsers123, true},
+				{http.MethodDelete, pathAPIUsers123, true},
+				{http.MethodGet, pathAPIUsers, false},
+				{http.MethodGet, "/api/users/123/posts", false},
 			},
 		},
 		{
 			name: "wildcard pattern - specific method",
 			exclusions: []Exclusion{
-				{Method: "GET", PathPattern: "/api/users/*"},
+				{Method: http.MethodGet, PathPattern: pathAPIUsersWild},
 			},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/users/123", true},
-				{"POST", "/api/users/123", false},
-				{"DELETE", "/api/users/123", false},
+				{http.MethodGet, pathAPIUsers123, true},
+				{http.MethodPost, pathAPIUsers123, false},
+				{http.MethodDelete, pathAPIUsers123, false},
 			},
 		},
 		{
 			name: "double wildcard",
 			exclusions: []Exclusion{
-				{PathPattern: "/internal/**"},
+				{PathPattern: pathInternalGlob},
 			},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/internal/debug", true},
-				{"GET", "/internal/debug/metrics", true},
-				{"GET", "/internal/debug/metrics/cpu", true},
-				{"GET", "/api/internal/debug", false},
+				{http.MethodGet, pathInternalDebug, true},
+				{http.MethodGet, "/internal/debug/metrics", true},
+				{http.MethodGet, "/internal/debug/metrics/cpu", true},
+				{http.MethodGet, "/api/internal/debug", false},
 			},
 		},
 		{
@@ -186,45 +200,45 @@ func TestExclusionEvaluator_ShouldExclude(t *testing.T) {
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/v1/internal/debug", true},
-				{"GET", "/api/v2/internal/metrics", true},
-				{"GET", "/api/vX/internal/debug", false},
-				{"GET", "/api/v1/public/users", false},
+				{http.MethodGet, "/api/v1/internal/debug", true},
+				{http.MethodGet, "/api/v2/internal/metrics", true},
+				{http.MethodGet, "/api/vX/internal/debug", false},
+				{http.MethodGet, "/api/v1/public/users", false},
 			},
 		},
 		{
 			name: "multiple exclusions",
 			exclusions: []Exclusion{
-				{Method: "GET", PathPattern: "/api/users/*"},
-				{Method: "POST", PathPattern: "/api/posts/*"},
-				{PathPattern: "/internal/**"},
+				{Method: http.MethodGet, PathPattern: pathAPIUsersWild},
+				{Method: http.MethodPost, PathPattern: "/api/posts/*"},
+				{PathPattern: pathInternalGlob},
 			},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/users/123", true},
-				{"POST", "/api/users/123", false},
-				{"POST", "/api/posts/456", true},
-				{"GET", "/api/posts/456", false},
-				{"DELETE", "/internal/debug", true},
-				{"GET", "/internal/metrics/cpu", true},
+				{http.MethodGet, pathAPIUsers123, true},
+				{http.MethodPost, pathAPIUsers123, false},
+				{http.MethodPost, "/api/posts/456", true},
+				{http.MethodGet, "/api/posts/456", false},
+				{http.MethodDelete, pathInternalDebug, true},
+				{http.MethodGet, "/internal/metrics/cpu", true},
 			},
 		},
 		{
 			name: "case insensitive method matching",
 			exclusions: []Exclusion{
-				{Method: "get", PathPattern: "/api/users"},
+				{Method: "get", PathPattern: pathAPIUsers},
 			},
 			testCases: []struct {
 				method string
 				path   string
 				want   bool
 			}{
-				{"GET", "/api/users", true},
-				{"get", "/api/users", true},
-				{"Get", "/api/users", true},
+				{http.MethodGet, pathAPIUsers, true},
+				{"get", pathAPIUsers, true},
+				{"Get", pathAPIUsers, true},
 			},
 		},
 	}
@@ -249,9 +263,9 @@ func TestExclusionEvaluator_ShouldExclude(t *testing.T) {
 
 func TestExclusionEvaluator_GetMatchingExclusions(t *testing.T) {
 	exclusions := []Exclusion{
-		{Method: "GET", PathPattern: "/api/users/*", PatternType: PatternTypeWildcard},
-		{Method: "GET", PathPattern: "/api/v1/users/*", PatternType: PatternTypeWildcard},
-		{PathPattern: "/internal/**", PatternType: PatternTypeWildcard},
+		{Method: http.MethodGet, PathPattern: pathAPIUsersWild, PatternType: PatternTypeWildcard},
+		{Method: http.MethodGet, PathPattern: pathAPIV1UsersWild, PatternType: PatternTypeWildcard},
+		{PathPattern: pathInternalGlob, PatternType: PatternTypeWildcard},
 		{PathPattern: "^/api/v[0-9]+/.*", PatternType: PatternTypeRegex},
 	}
 
@@ -268,26 +282,26 @@ func TestExclusionEvaluator_GetMatchingExclusions(t *testing.T) {
 	}{
 		{
 			name:      "single match",
-			method:    "GET",
-			path:      "/api/users/123",
+			method:    http.MethodGet,
+			path:      pathAPIUsers123,
 			wantCount: 1,
 		},
 		{
 			name:      "multiple matches",
-			method:    "GET",
+			method:    http.MethodGet,
 			path:      "/api/v1/users/123",
 			wantCount: 2, // matches both GET /api/users/* and regex
 		},
 		{
 			name:      "no matches",
-			method:    "POST",
-			path:      "/api/posts",
+			method:    http.MethodPost,
+			path:      pathAPIPosts,
 			wantCount: 0,
 		},
 		{
 			name:      "internal path matches all methods",
-			method:    "DELETE",
-			path:      "/internal/debug",
+			method:    http.MethodDelete,
+			path:      pathInternalDebug,
 			wantCount: 1,
 		},
 	}
@@ -314,34 +328,34 @@ func TestEndpointMatcher_Matches(t *testing.T) {
 	}{
 		{
 			name:           "exact method and path match",
-			matcherMethod:  "GET",
-			matcherPattern: "/api/users",
-			testMethod:     "GET",
-			testPath:       "/api/users",
+			matcherMethod:  http.MethodGet,
+			matcherPattern: pathAPIUsers,
+			testMethod:     http.MethodGet,
+			testPath:       pathAPIUsers,
 			want:           true,
 		},
 		{
 			name:           "method mismatch",
-			matcherMethod:  "GET",
-			matcherPattern: "/api/users",
-			testMethod:     "POST",
-			testPath:       "/api/users",
+			matcherMethod:  http.MethodGet,
+			matcherPattern: pathAPIUsers,
+			testMethod:     http.MethodPost,
+			testPath:       pathAPIUsers,
 			want:           false,
 		},
 		{
 			name:           "path mismatch",
-			matcherMethod:  "GET",
-			matcherPattern: "/api/users",
-			testMethod:     "GET",
-			testPath:       "/api/posts",
+			matcherMethod:  http.MethodGet,
+			matcherPattern: pathAPIUsers,
+			testMethod:     http.MethodGet,
+			testPath:       pathAPIPosts,
 			want:           false,
 		},
 		{
 			name:           "all methods wildcard",
 			matcherMethod:  "",
-			matcherPattern: "/api/users",
-			testMethod:     "DELETE",
-			testPath:       "/api/users",
+			matcherPattern: pathAPIUsers,
+			testMethod:     http.MethodDelete,
+			testPath:       pathAPIUsers,
 			want:           true,
 		},
 	}
@@ -369,8 +383,8 @@ func TestValidateExclusion(t *testing.T) {
 		{
 			name: "valid exclusion",
 			exclusion: Exclusion{
-				Method:      "GET",
-				PathPattern: "/api/users/*",
+				Method:      http.MethodGet,
+				PathPattern: pathAPIUsersWild,
 				PatternType: PatternTypeWildcard,
 			},
 			wantErr: false,
@@ -386,29 +400,29 @@ func TestValidateExclusion(t *testing.T) {
 			name: "invalid method",
 			exclusion: Exclusion{
 				Method:      "INVALID",
-				PathPattern: "/api/users",
+				PathPattern: pathAPIUsers,
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid pattern type",
 			exclusion: Exclusion{
-				PathPattern: "/api/users",
-				PatternType: "invalid",
+				PathPattern: pathAPIUsers,
+				PatternType: PatternType(invalidStr),
 			},
 			wantErr: true,
 		},
 		{
 			name: "valid - no method",
 			exclusion: Exclusion{
-				PathPattern: "/api/users/*",
+				PathPattern: pathAPIUsersWild,
 			},
 			wantErr: false,
 		},
 		{
 			name: "valid - no pattern type (defaults to wildcard)",
 			exclusion: Exclusion{
-				PathPattern: "/api/users/*",
+				PathPattern: pathAPIUsersWild,
 			},
 			wantErr: false,
 		},
