@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	pathAPIV1Users   = "/api/v1/users"
+	pathAPIUsersJSON = "/api/users.json"
+)
+
 func TestExactMatcher(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -15,26 +20,26 @@ func TestExactMatcher(t *testing.T) {
 	}{
 		{
 			name:    "exact match",
-			pattern: "/api/users",
-			path:    "/api/users",
+			pattern: pathAPIUsers,
+			path:    pathAPIUsers,
 			want:    true,
 		},
 		{
 			name:    "no match - different path",
-			pattern: "/api/users",
-			path:    "/api/posts",
+			pattern: pathAPIUsers,
+			path:    pathAPIPosts,
 			want:    false,
 		},
 		{
 			name:    "no match - subset",
-			pattern: "/api/users",
-			path:    "/api/users/123",
+			pattern: pathAPIUsers,
+			path:    pathAPIUsers123,
 			want:    false,
 		},
 		{
 			name:    "no match - superset",
-			pattern: "/api/users/123",
-			path:    "/api/users",
+			pattern: pathAPIUsers123,
+			path:    pathAPIUsers,
 			want:    false,
 		},
 	}
@@ -65,7 +70,7 @@ func TestWildcardMatcher(t *testing.T) {
 		{
 			name:    "single wildcard - match",
 			pattern: "/api/*/users",
-			path:    "/api/v1/users",
+			path:    pathAPIV1Users,
 			want:    true,
 		},
 		{
@@ -83,13 +88,13 @@ func TestWildcardMatcher(t *testing.T) {
 		{
 			name:    "double wildcard - match single level",
 			pattern: "/api/**/users",
-			path:    "/api/v1/users",
+			path:    pathAPIV1Users,
 			want:    true,
 		},
 		{
 			name:    "trailing wildcard - match",
-			pattern: "/api/users/*",
-			path:    "/api/users/123",
+			pattern: pathAPIUsersWild,
+			path:    pathAPIUsers123,
 			want:    true,
 		},
 		{
@@ -100,7 +105,7 @@ func TestWildcardMatcher(t *testing.T) {
 		},
 		{
 			name:    "trailing wildcard - no match different base",
-			pattern: "/api/users/*",
+			pattern: pathAPIUsersWild,
 			path:    "/api/posts/123",
 			want:    false,
 		},
@@ -113,7 +118,7 @@ func TestWildcardMatcher(t *testing.T) {
 		{
 			name:    "question mark wildcard - single char",
 			pattern: "/api/v?/users",
-			path:    "/api/v1/users",
+			path:    pathAPIV1Users,
 			want:    true,
 		},
 		{
@@ -125,7 +130,7 @@ func TestWildcardMatcher(t *testing.T) {
 		{
 			name:    "wildcard at start",
 			pattern: "**/users",
-			path:    "/api/users",
+			path:    pathAPIUsers,
 			want:    true,
 		},
 		{
@@ -166,7 +171,7 @@ func TestRegexMatcher(t *testing.T) {
 		{
 			name:    "simple regex",
 			pattern: "^/api/v[0-9]+/users$",
-			path:    "/api/v1/users",
+			path:    pathAPIV1Users,
 			want:    true,
 		},
 		{
@@ -195,7 +200,7 @@ func TestRegexMatcher(t *testing.T) {
 		},
 		{
 			name:    "invalid regex",
-			pattern: "[invalid",
+			pattern: invalidBracketStr,
 			wantErr: true,
 		},
 	}
@@ -234,13 +239,13 @@ func TestNewPathMatcher(t *testing.T) {
 	}{
 		{
 			name:        "exact matcher",
-			pattern:     "/api/users",
+			pattern:     pathAPIUsers,
 			patternType: PatternTypeExact,
 			wantType:    PatternTypeExact,
 		},
 		{
 			name:        "wildcard matcher",
-			pattern:     "/api/users/*",
+			pattern:     pathAPIUsersWild,
 			patternType: PatternTypeWildcard,
 			wantType:    PatternTypeWildcard,
 		},
@@ -258,13 +263,13 @@ func TestNewPathMatcher(t *testing.T) {
 		},
 		{
 			name:        "invalid pattern type",
-			pattern:     "/api/users",
-			patternType: "invalid",
+			pattern:     pathAPIUsers,
+			patternType: PatternType(invalidStr),
 			wantErr:     true,
 		},
 		{
 			name:        "invalid regex",
-			pattern:     "[invalid",
+			pattern:     invalidBracketStr,
 			patternType: PatternTypeRegex,
 			wantErr:     true,
 		},
@@ -297,13 +302,13 @@ func TestWildcardToRegex(t *testing.T) {
 	}{
 		{
 			name:     "special chars are escaped",
-			pattern:  "/api/users.json",
-			testPath: "/api/users.json",
+			pattern:  pathAPIUsersJSON,
+			testPath: pathAPIUsersJSON,
 			want:     true,
 		},
 		{
 			name:     "dot not treated as wildcard",
-			pattern:  "/api/users.json",
+			pattern:  pathAPIUsersJSON,
 			testPath: "/api/userszjson",
 			want:     false,
 		},

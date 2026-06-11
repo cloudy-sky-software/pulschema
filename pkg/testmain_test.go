@@ -12,7 +12,10 @@ import (
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 )
 
-const packageName = "fake-package"
+const (
+	packageName        = "fake-package"
+	providerNamespace  = "Provider"
+)
 
 var testOpenAPIDocBytes []byte
 var testOpenAPIDoc *openapi3.T
@@ -36,10 +39,10 @@ var testPulumiPkg = pschema.PackageSpec{
 		Variables: map[string]pschema.PropertySpec{
 			"apiKey": {
 				Description: "The API key",
-				TypeSpec:    pschema.TypeSpec{Type: "string"},
+				TypeSpec:    pschema.TypeSpec{Type: typeString},
 				Language: map[string]pschema.RawMessage{
-					"csharp": rawMessage(map[string]interface{}{
-						"name": "ApiKey",
+					languageCSharp: rawMessage(map[string]interface{}{
+						propertyName: "ApiKey",
 					}),
 				},
 				Secret: true,
@@ -50,7 +53,7 @@ var testPulumiPkg = pschema.PackageSpec{
 	Provider: pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: "The provider type for the FakeCloud package.",
-			Type:        "object",
+			Type:        typeObject,
 		},
 		InputProperties: map[string]pschema.PropertySpec{
 			"apiKey": {
@@ -60,10 +63,10 @@ var testPulumiPkg = pschema.PackageSpec{
 					},
 				},
 				Description: "The FakeCloud API key.",
-				TypeSpec:    pschema.TypeSpec{Type: "string"},
+				TypeSpec:    pschema.TypeSpec{Type: typeString},
 				Language: map[string]pschema.RawMessage{
-					"csharp": rawMessage(map[string]interface{}{
-						"name": "ApiKey",
+					languageCSharp: rawMessage(map[string]interface{}{
+						propertyName: "ApiKey",
 					}),
 				},
 				Secret: true,

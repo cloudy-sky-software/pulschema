@@ -20,7 +20,7 @@ func TestGenEnumType(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": providerNamespace,
 	}
 
 	_, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)

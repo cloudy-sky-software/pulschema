@@ -16,7 +16,7 @@ func TestBug131(t *testing.T) {
 	}
 
 	csharpNamespaces := map[string]string{
-		"": "Provider",
+		"": providerNamespace,
 	}
 
 	providerMetadata, _, err := openAPICtx.GatherResourcesFromAPI(csharpNamespaces)

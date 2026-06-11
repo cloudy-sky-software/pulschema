@@ -31,6 +31,11 @@ const (
 	plainTextMimeType         = "text/plain"
 	parameterLocationPath     = "path"
 	pathSeparator             = "/"
+
+	typeString     = "string"
+	typeObject     = "object"
+	propertyName   = "name"
+	languageCSharp = "csharp"
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
@@ -169,16 +174,16 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// Check each HTTP method for this path
 		methods := []string{}
 		if pathItem.Get != nil {
-			methods = append(methods, "GET")
+			methods = append(methods, http.MethodGet)
 		}
 		if pathItem.Post != nil {
-			methods = append(methods, "POST")
+			methods = append(methods, http.MethodPost)
 		}
 		if pathItem.Put != nil {
-			methods = append(methods, "PUT")
+			methods = append(methods, http.MethodPut)
 		}
 		if pathItem.Patch != nil {
-			methods = append(methods, "PATCH")
+			methods = append(methods, http.MethodPatch)
 		}
 		if pathItem.Delete != nil {
 			methods = append(methods, "DELETE")
@@ -594,7 +599,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: "string"},
+			TypeSpec:    pschema.TypeSpec{Type: typeString},
 		}
 		requiredInputs.Add(sdkName)
 	}
@@ -690,7 +695,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 
 		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: "string"},
+			TypeSpec:    pschema.TypeSpec{Type: typeString},
 		}
 		requiredInputs.Add(sdkName)
 	}
@@ -753,7 +758,7 @@ func (o *OpenAPIContext) gatherResource(
 
 			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
 				Description: param.Value.Description,
-				TypeSpec:    pschema.TypeSpec{Type: "string"},
+				TypeSpec:    pschema.TypeSpec{Type: typeString},
 			}
 		}
 
@@ -853,7 +858,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 					propSpec = pschema.PropertySpec{
 						TypeSpec: pschema.TypeSpec{
-							Type:                 "object",
+							Type:                 typeObject,
 							AdditionalProperties: typeSpec,
 						},
 					}
@@ -919,7 +924,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 						propSpec = pschema.PropertySpec{
 							TypeSpec: pschema.TypeSpec{
-								Type:                 "object",
+								Type:                 typeObject,
 								AdditionalProperties: typeSpec,
 							},
 						}
@@ -996,11 +1001,11 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			continue
 		}
 
-		if requiredProp == "name" {
+		if requiredProp == propertyName {
 			if autoNameProp, ok := o.autoNameMap[typeToken]; ok && autoNameProp != requiredProp {
 				return nil, errors.Errorf("auto-name prop already exists for resource %s (existing: %s, new: %s)", typeToken, autoNameProp, requiredProp)
 			}
-			o.autoNameMap[typeToken] = "name"
+			o.autoNameMap[typeToken] = propertyName
 
 			continue
 		}
@@ -1109,7 +1114,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: requestBodySchema.Description,
-			Type:        "object",
+			Type:        typeObject,
 			Properties:  properties,
 			Required:    requiredOutputs.SortedValues(),
 		},
@@ -1144,7 +1149,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	if languageName == ctx.resourceName {
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+			languageCSharp: rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: languageName + "Value",
 			}),
 		}
@@ -1153,7 +1158,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 		// and $ is an invalid character in the generated names.
 		// Replace them with `Ref` and `Schema`.
 		propertySpec.Language = map[string]pschema.RawMessage{
-			"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+			languageCSharp: rawMessage(dotnetgen.CSharpPropertyInfo{
 				Name: strings.ToUpper(propName[1:2]) + propName[2:],
 			}),
 		}
@@ -1209,7 +1214,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 				ObjectTypeSpec: pschema.ObjectTypeSpec{
 					Description: typeSchema.Value.Description,
-					Type:        "object",
+					Type:        typeObject,
 					Properties:  specs,
 					Required:    requiredSpecs.SortedValues(),
 				},
@@ -1232,7 +1237,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
-				Type:        "object",
+				Type:        typeObject,
 				Properties:  specs,
 				Required:    requiredSpecs.SortedValues(),
 			},
@@ -1289,7 +1294,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
-				Type:        "object",
+				Type:        typeObject,
 				Properties:  properties,
 				Required:    requiredPropSpecs.SortedValues(),
 			},
@@ -1333,7 +1338,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	case valType.Is(openapi3.TypeInteger):
 		return &pschema.TypeSpec{Type: "integer"}, false, nil
 	case valType.Is(openapi3.TypeString):
-		return &pschema.TypeSpec{Type: "string"}, false, nil
+		return &pschema.TypeSpec{Type: typeString}, false, nil
 	case valType.Is(openapi3.TypeBoolean):
 		return &pschema.TypeSpec{Type: "boolean"}, false, nil
 	case valType.Is(openapi3.TypeNumber):
@@ -1386,7 +1391,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 					}
 
 					typeSpec = &pschema.TypeSpec{
-						Type:                 "object",
+						Type:                 typeObject,
 						AdditionalProperties: addlPropsTypeSpec,
 					}
 				}
@@ -1411,7 +1416,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		// .NET does not allow properties to be the same as the enclosing class - so special case these.
 		if ToPascalCase(sdkName) == parentName {
 			propertySpec.Language = map[string]pschema.RawMessage{
-				"csharp": rawMessage(dotnetgen.CSharpPropertyInfo{
+				languageCSharp: rawMessage(dotnetgen.CSharpPropertyInfo{
 					Name: ToPascalCase(sdkName) + "Value",
 				}),
 			}
