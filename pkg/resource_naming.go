@@ -23,8 +23,13 @@ const (
 	nounSetup             = "Setup"
 	nounLowerCaseSetup    = "setup"
 
+	titleCreate = "Create"
 	titleDelete = "Delete"
 	titleGet    = "Get"
+	titlePatch  = "Patch"
+	titlePut    = "Put"
+
+	keywordCreate = "create"
 )
 
 func getModuleFromPath(path string, useParentResourceAsModule bool) string {
@@ -72,11 +77,11 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	case http.MethodPatch:
 		replaceKeywords = append(replaceKeywords, "patch", "update")
 	case http.MethodPost:
-		replaceKeywords = append(replaceKeywords, "add", "create", keywordPost, "put", "set")
+		replaceKeywords = append(replaceKeywords, "add", keywordCreate, keywordPost, "put", keywordSet)
 	case http.MethodPut:
 		// Multi-word keywords need to be placed ahead of single word
 		// ones.
-		replaceKeywords = append(replaceKeywords, "add-or-update", "create-or-replace", "add", "upsert", "create", "put", "set", "update", "replace")
+		replaceKeywords = append(replaceKeywords, "add-or-update", "create-or-replace", "add", "upsert", keywordCreate, "put", keywordSet, "update", "replace")
 	}
 
 	result := originalOperationID
@@ -150,7 +155,7 @@ func getResourceTitleFromOperationID(originalOperationID, method string, isSepar
 	return resourceTitle
 }
 
-var replaceKeywords = map[string]string{"POST": "Create", "Post": "Create", "post": "create", "DELETE": titleDelete, titleDelete: titleDelete, "PUT": "Put", "Put": "Put", "Patch": "Patch", "PATCH": "Patch", "GET": titleGet, titleGet: titleGet}
+var replaceKeywords = map[string]string{"POST": titleCreate, "Post": titleCreate, "post": keywordCreate, "DELETE": titleDelete, titleDelete: titleDelete, "PUT": titlePut, titlePut: titlePut, titlePatch: titlePatch, "PATCH": titlePatch, "GET": titleGet, titleGet: titleGet}
 
 func sanitizeResourceTitle(title string) string {
 	titleContainsPostgres := strings.Contains(strings.ToLower(title), nounLowerCasePostgres)
