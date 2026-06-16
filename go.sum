@@ -370,6 +370,8 @@ github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.103.1 h1:g04apzDR0U
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.103.1/go.mod h1:21ULKvDIGaXBH0qGAWD+WmDwoHuXoMhjQWQN7359ZNg=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.0 h1:JoXsVrNqLBx9Y95YEqRmyLklplb/FkjbgNhNIpZY+OM=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.0/go.mod h1:4yt8/3y//DIh1LgWWIuTgKMn9ok+lh1xFZ5vujqaWdg=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.1 h1:1xEq//ztg+wI1bBRprdCg5pgresFqyeYRPGbBUIgXVw=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.1/go.mod h1:NgfjHftu6+m6YSYIRjU9loqimcD8bKv17VoBuYFlHNo=
 github.com/pulumi/pulumi/pkg/v3 v3.230.0 h1:SHjHvXskFXG/aSA2/f8ZTzHizX51nBoqzA76WpmYaRo=
 github.com/pulumi/pulumi/pkg/v3 v3.230.0/go.mod h1:+PTJHGM/8Z9c85DFr53Q9FQGlfu8U0gvhSoQBsIpAWI=
 github.com/pulumi/pulumi/pkg/v3 v3.245.0 h1:ssZ0nHf6IuKMMnO4pxiC7E4R8OIVltXAf9V3ZN1cLYg=
