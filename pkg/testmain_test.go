@@ -50,7 +50,7 @@ var testPulumiPkg = pschema.PackageSpec{
 		},
 	},
 
-	Provider: pschema.ResourceSpec{
+	Provider: &pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: "The provider type for the FakeCloud package.",
 			Type:        typeObject,
