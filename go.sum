@@ -351,6 +351,8 @@ github.com/pulumi/inflector v0.2.1 h1:bqyiish3tq//vLeLiEstSFE5K7RNjy/ce47ed4QATu
 github.com/pulumi/inflector v0.2.1/go.mod h1:HUFCjcPTz96YtTuUlwG3i3EZG4WlniBvR9bd+iJxCUY=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.2 h1:ATIei1jesc/iK0PCTs9fUEIpvRU/JfdFw0AOure9XfA=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.2/go.mod h1:Q5zuGnceZPi3pa9iFD2p5DvT8KO7cl0ZoOBxiF+oIlc=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.3 h1:tb/AIjzEimTBVxyosN4L9NGUGiqu9eqXQjzCLTV0uPo=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.107.3/go.mod h1:UIpPz4jF2AwppPjLBj20N0VnX96uTHv777UjrrAdsDM=
 github.com/pulumi/pulumi/pkg/v3 v3.247.0 h1:80M0NOTlLppzmXCxJZ6Rw3SkHSRfgc6nOxebqNJxu/U=
 github.com/pulumi/pulumi/pkg/v3 v3.247.0/go.mod h1:3CAS3XJiNMpVd3namRqa3eJSKiGiHvwrwM+r7tN9MMY=
 github.com/pulumi/pulumi/pkg/v3 v3.248.0 h1:MkvI29cYE3QUEvSl+7kZrV5lQ6CBIt54WjYt2HEXDSg=
