@@ -6,8 +6,8 @@ require (
 	github.com/getkin/kin-openapi v0.142.0
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/pkg/v3 v3.252.0
-	github.com/pulumi/pulumi/sdk/v3 v3.252.0
+	github.com/pulumi/pulumi/pkg/v3 v3.253.0
+	github.com/pulumi/pulumi/sdk/v3 v3.253.0
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -118,8 +118,8 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260706201446-f0a921348800 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260713224248-f5fc221cf8c4 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260713224248-f5fc221cf8c4 // indirect
 	google.golang.org/grpc v1.82.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
