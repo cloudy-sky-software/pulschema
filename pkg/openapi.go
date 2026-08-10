@@ -4,8 +4,10 @@ package pkg
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -19,7 +21,6 @@ import (
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/maputil"
 
 	"github.com/cloudy-sky-software/pulschema/pkg/exclusions"
 )
@@ -1365,7 +1366,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 	specs := map[string]pschema.PropertySpec{}
 	requiredSpecs := codegen.NewStringSet()
 
-	for _, name := range maputil.SortedKeys(typeSchema.Properties) {
+	for _, name := range slices.Sorted(maps.Keys(typeSchema.Properties)) {
 		value := typeSchema.Properties[name]
 		sdkName := ToSdkName(name)
 
