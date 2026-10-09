@@ -31,6 +31,7 @@ const (
 	jsonMimeType              = "application/json"
 	plainTextMimeType         = "text/plain"
 	parameterLocationPath     = "path"
+	parameterLocationQuery    = "query"
 	pathSeparator             = "/"
 
 	typeString     = "string"
@@ -543,17 +544,21 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		if pathItem.Post != nil {
 			resourceName = getResourceTitleFromOperationID(pathItem.Post.OperationID, http.MethodPost, o.OperationIDsHaveTypeSpecNamespace)
 			resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
-			parameters = append(pathItem.Parameters, pathItem.Post.Parameters...)
+			parameters = mergeParameters(pathItem.Parameters, pathItem.Post.Parameters)
 		} else if pathItem.Put != nil {
 			resourceName = getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 			resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
-			parameters = append(pathItem.Parameters, pathItem.Put.Parameters...)
+			parameters = mergeParameters(pathItem.Parameters, pathItem.Put.Parameters)
 		}
 
 		resourceRequestType := jsonReq.Schema.Value
 		if err := o.gatherResource(currentPath, resourceName, *resourceRequestType, resourceResponseType, parameters, module); err != nil {
 			return nil, o.Doc, errors.Wrapf(err, "generating resource for api path %s", currentPath)
 		}
+	}
+
+	if err := o.addQueryParamsToResources(); err != nil {
+		return nil, o.Doc, errors.Wrap(err, "adding query params to resources")
 	}
 
 	return &ProviderMetadata{
@@ -585,8 +590,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
 
-	parameters := pathItem.Parameters
-	parameters = append(parameters, pathItem.Get.Parameters...)
+	parameters := mergeParameters(pathItem.Parameters, pathItem.Get.Parameters)
 	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
 			continue
@@ -606,6 +610,18 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 			TypeSpec:    pschema.TypeSpec{Type: typeString},
 		}
 		requiredInputs.Add(sdkName)
+	}
+
+	queryParamsType, hasRequiredQueryParams, err := o.genQueryParamsType(module, parentName+"QueryParams", parameters)
+	if err != nil {
+		return nil, errors.Wrap(err, "generating query params type")
+	}
+	inputProps[QueryParamsPropName] = pschema.PropertySpec{
+		Description: "Query params to send with the API request.",
+		TypeSpec:    *queryParamsType,
+	}
+	if hasRequiredQueryParams {
+		requiredInputs.Add(QueryParamsPropName)
 	}
 
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
@@ -680,8 +696,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 	requiredInputs := codegen.NewStringSet()
 	inputProps := make(map[string]pschema.PropertySpec)
 
-	parameters := pathItem.Parameters
-	parameters = append(parameters, pathItem.Get.Parameters...)
+	parameters := mergeParameters(pathItem.Parameters, pathItem.Get.Parameters)
 
 	for _, param := range parameters {
 		if param.Value.In != parameterLocationPath {
@@ -702,6 +717,18 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 			TypeSpec:    pschema.TypeSpec{Type: typeString},
 		}
 		requiredInputs.Add(sdkName)
+	}
+
+	queryParamsType, hasRequiredQueryParams, err := o.genQueryParamsType(module, parentName+"QueryParams", parameters)
+	if err != nil {
+		panic(err)
+	}
+	inputProps[QueryParamsPropName] = pschema.PropertySpec{
+		Description: "Query params to send with the API request.",
+		TypeSpec:    *queryParamsType,
+	}
+	if hasRequiredQueryParams {
+		requiredInputs.Add(QueryParamsPropName)
 	}
 
 	if returnTypeSchema.Value == nil || returnTypeSchema.Value == defaultEmptySchemaDoNotMutate {

@@ -22,6 +22,26 @@ SDKs for a provider.
 -   Generates schema for Pulumi functions, aka invokes, from `GET` methods
 -   Maps path params as required inputs in the resource schema for easier mapping of inputs
     to HTTP requests
+-   Maps query params to a `queryParams` input on resources and functions (see below)
+
+### Query Params
+
+Every resource and function gets an optional `queryParams` input. Each endpoint gets its own
+type with a property for every `in: query` param defined in the spec (path-level params included),
+plus an `additionalParams` map of strings for arbitrary query params that aren't in the spec.
+
+-   **Functions** (`get*`/`list*`): `queryParams` refers to a `<FuncName>QueryParams` type, for example
+    `GetWidgetQueryParams`.
+-   **Resources**: `queryParams` refers to a `<Resource>QueryParams` type that has one property per CRUD
+    operation: `create`, `read`, `update` (PATCH), `put` (PUT) and `delete`. Each of these refers to a
+    `<Resource><Op>QueryParams` type, for example `WidgetDeleteQueryParams`. `queryParams` is also an output
+    property, so providers can read it from state during Read and Delete.
+
+`queryParams` (and the operation property) is required only if the endpoint has a required query param.
+
+Query param names are converted to camelCase in the schema. Like other properties, renamed query
+params are recorded in the `sdkToApiNameMap` and `apiToSdkNameMap` metadata. Providers use them to
+map the properties of `queryParams` back to the API's query param names when building the request URL.
 
 ## OpenAPI Conformance
 

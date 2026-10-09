@@ -1,0 +1,194 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    thing_request:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+    thing:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    thing_update_request:
+      type: object
+      properties:
+        name:
+          type: string
+    gizmo:
+      type: object
+      properties:
+        name:
+          type: string
+
+paths:
+  /v1/things:
+    get:
+      operationId: listThings
+      parameters:
+        - name: page_size
+          in: query
+          description: The number of things to return.
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+      responses:
+        "200":
+          description: A list of things.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/thing"
+    post:
+      operationId: createThing
+      parameters:
+        - name: dry_run
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/thing_request"
+      responses:
+        "201":
+          description: The created thing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/thing"
+
+  /v1/things/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: region
+        in: query
+        description: The region of the thing.
+        schema:
+          type: string
+    get:
+      operationId: getThing
+      parameters:
+        - name: expand
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The thing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/thing"
+    patch:
+      operationId: updateThing
+      parameters:
+        - name: region
+          in: query
+          description: Overridden region.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/thing_update_request"
+      responses:
+        "200":
+          description: The updated thing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/thing"
+    delete:
+      operationId: deleteThing
+      parameters:
+        - name: force
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        "204":
+          description: Deleted.
+
+  # Created via PUT. The GET and DELETE endpoints are processed
+  # before the resource is gathered.
+  /v1/gizmos/{gizmo_id}:
+    parameters:
+      - name: gizmo_id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getGizmo
+      parameters:
+        - name: include_parts
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The gizmo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/gizmo"
+    put:
+      operationId: createGizmo
+      parameters:
+        - name: idempotency_key
+          in: query
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/gizmo"
+      responses:
+        "200":
+          description: The gizmo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/gizmo"
+    delete:
+      operationId: deleteGizmo
+      parameters:
+        - name: purge
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        "204":
+          description: Deleted.
