@@ -93,6 +93,11 @@ type OpenAPIContext struct {
 	// be converted to their singular version.
 	AllowedPluralResources []string
 
+	// AllowedResourcesWithoutReadEndpoint is a slice of resource type
+	// tokens that won't fail the Read provider method due to a lack
+	// of an endpoint that can be used to read the resource.
+	AllowedResourcesWithoutReadEndpoint []string
+
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
 	resourceCRUDMap map[string]*CRUDOperationsMap
@@ -158,7 +163,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.apiToSDKNameMap = make(map[string]string)
 	o.pathParamNameMap = make(map[string]string)
 
-	o.allowedPluralResources = append(o.AllowedPluralResources, defaultAllowedPluralResourceNames...)
+	o.allowedPluralResources = slices.Concat(o.AllowedPluralResources, defaultAllowedPluralResourceNames)
 
 	for _, path := range o.Doc.Paths.InMatchingOrder() {
 		pathItem := o.Doc.Paths.Find(path)
@@ -552,11 +557,12 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	}
 
 	return &ProviderMetadata{
-		ResourceCRUDMap:  o.resourceCRUDMap,
-		AutoNameMap:      o.autoNameMap,
-		SDKToAPINameMap:  o.sdkToAPINameMap,
-		APIToSDKNameMap:  o.apiToSDKNameMap,
-		PathParamNameMap: o.pathParamNameMap,
+		AllowedResourcesWithoutReadEndpoint: o.AllowedResourcesWithoutReadEndpoint,
+		APIToSDKNameMap:                     o.apiToSDKNameMap,
+		AutoNameMap:                         o.autoNameMap,
+		PathParamNameMap:                    o.pathParamNameMap,
+		ResourceCRUDMap:                     o.resourceCRUDMap,
+		SDKToAPINameMap:                     o.sdkToAPINameMap,
 	}, o.Doc, nil
 }
 
@@ -566,9 +572,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 // type the output result.
 func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchema openapi3.SchemaRef, module, funcName string) (*pschema.FunctionSpec, error) {
 	parentName := ToPascalCase(funcName)
-	if funcName == "listReservedIPs" {
-		glog.Info("HELLO!")
-	}
 	funcPkgCtx := &resourceContext{
 		mod:               module,
 		pkg:               o.Pkg,
