@@ -50,6 +50,10 @@ type ProviderMetadata struct {
 	// its Pulumi schema name. Can be nil.
 	PathParamNameMap map[string]string `json:"pathParamNameMap"`
 
+	// QueryParamNameMap is a map of a query param's original name to
+	// its Pulumi schema name. Can be nil.
+	QueryParamNameMap map[string]string `json:"queryParamNameMap"`
+
 	AllowedResourcesWithoutReadEndpoint []string `json:"allowedResourcesWithoutReadEndpoint"`
 }
 
