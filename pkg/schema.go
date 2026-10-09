@@ -49,6 +49,8 @@ type ProviderMetadata struct {
 	// PathParamNameMap is a map of a path param's original name to
 	// its Pulumi schema name. Can be nil.
 	PathParamNameMap map[string]string `json:"pathParamNameMap"`
+
+	AllowedResourcesWithoutReadEndpoint []string `json:"allowedResourcesWithoutReadEndpoint"`
 }
 
 type resourceContext struct {
