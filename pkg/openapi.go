@@ -34,9 +34,6 @@ const (
 	parameterLocationQuery    = "query"
 	pathSeparator             = "/"
 
-	queryParamsPropName           = "queryParams"
-	additionalQueryParamsPropName = "additionalParams"
-
 	typeString     = "string"
 	typeObject     = "object"
 	propertyName   = "name"
@@ -125,15 +122,7 @@ type OpenAPIContext struct {
 	// to the SDK name used in the Pulumi schema. This can
 	// be used by providers to look-up the value for a path
 	// param in the inputs map.
-	pathParamNameMap map[string]string
-	// queryParamNameMap holds the original query param name
-	// to the SDK name used in the Pulumi schema. This can
-	// be used by providers to map the properties of a
-	// queryParams input back to the API's query param names.
-	queryParamNameMap map[string]string
-	// resourceQueryParams is a map of a resource type token
-	// to the query params type of each of its CRUD operations.
-	resourceQueryParams    map[string]map[string]resourceOpQueryParams
+	pathParamNameMap       map[string]string
 	allowedPluralResources []string
 }
 
@@ -174,8 +163,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 	o.sdkToAPINameMap = make(map[string]string)
 	o.apiToSDKNameMap = make(map[string]string)
 	o.pathParamNameMap = make(map[string]string)
-	o.queryParamNameMap = make(map[string]string)
-	o.resourceQueryParams = make(map[string]map[string]resourceOpQueryParams)
 
 	o.allowedPluralResources = slices.Concat(o.AllowedPluralResources, defaultAllowedPluralResourceNames)
 
@@ -260,11 +247,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 			}
 
-			setResourceReadOperationMapping := func(tok string) error {
-				setReadOperationMapping(tok)
-				return o.addResourceOpQueryParams(tok, queryParamsOpRead, mergeParameters(pathItem.Parameters, pathItem.Get.Parameters))
-			}
-
 			resourceType := respType.Schema.Value
 
 			// Use the type and operationID as a hint to determine if this GET endpoint returns a single resource
@@ -278,9 +260,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						dResource := o.Doc.Components.Schemas[schemaName]
 						title := getResourceTitleFromRequestSchema(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, title)
-						if err := setResourceReadOperationMapping(typeToken); err != nil {
-							return nil, o.Doc, err
-						}
+						setReadOperationMapping(typeToken)
 
 						funcName := "get" + dResource.Value.Title
 						funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
@@ -297,9 +277,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					// This is in addition to separately adding the "get" function
 					// too.
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-					if err := setResourceReadOperationMapping(typeToken); err != nil {
-						return nil, o.Doc, err
-					}
+					setReadOperationMapping(typeToken)
 
 					funcName := "get" + resourceName
 					funcTypeToken := o.Pkg.Name + ":" + module + ":" + funcName
@@ -338,7 +316,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				contract.Failf("Path %s has no schema definition for Patch method", currentPath)
 			}
 
-			setUpdateOperationMapping := func(tok string) error {
+			setUpdateOperationMapping := func(tok string) {
 				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.U = &currentPath
 				} else {
@@ -346,8 +324,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						U: &currentPath,
 					}
 				}
-
-				return o.addResourceOpQueryParams(tok, queryParamsOpUpdate, mergeParameters(pathItem.Parameters, pathItem.Patch.Parameters))
 			}
 
 			resourceType := jsonReq.Schema.Value
@@ -379,17 +355,13 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					dResource := o.Doc.Components.Schemas[n]
 					resourceName := getResourceTitleFromRequestSchema(n, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-					if err := setUpdateOperationMapping(typeToken); err != nil {
-						return nil, o.Doc, err
-					}
+					setUpdateOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-				if err := setUpdateOperationMapping(typeToken); err != nil {
-					return nil, o.Doc, err
-				}
+				setUpdateOperationMapping(typeToken)
 			}
 		}
 
@@ -408,7 +380,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				contract.Failf("Path %s has no schema definition for Put method", currentPath)
 			}
 
-			setPutOperationMapping := func(tok string) error {
+			setPutOperationMapping := func(tok string) {
 				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.P = &currentPath
 				} else {
@@ -416,8 +388,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						P: &currentPath,
 					}
 				}
-
-				return o.addResourceOpQueryParams(tok, queryParamsOpPut, mergeParameters(pathItem.Parameters, pathItem.Put.Parameters))
 			}
 
 			resourceType := jsonReq.Schema.Value
@@ -428,16 +398,12 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 					dResource := o.Doc.Components.Schemas[schemaName]
 					resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-					if err := setPutOperationMapping(typeToken); err != nil {
-						return nil, o.Doc, err
-					}
+					setPutOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Put.OperationID, http.MethodPut, o.OperationIDsHaveTypeSpecNamespace)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-				if err := setPutOperationMapping(typeToken); err != nil {
-					return nil, o.Doc, err
-				}
+				setPutOperationMapping(typeToken)
 			}
 		}
 
@@ -451,7 +417,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			glog.V(3).Infof("DELETE: Parent path for %s is %s\n", currentPath, parentPath)
 
-			setDeleteOperationMapping := func(tok string) error {
+			setDeleteOperationMapping := func(tok string) {
 				if existing, ok := o.resourceCRUDMap[tok]; ok {
 					existing.D = &currentPath
 				} else {
@@ -459,8 +425,6 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						D: &currentPath,
 					}
 				}
-
-				return o.addResourceOpQueryParams(tok, queryParamsOpDelete, mergeParameters(pathItem.Parameters, pathItem.Delete.Parameters))
 			}
 
 			if pathItem.Delete.RequestBody != nil {
@@ -477,25 +441,19 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 						dResource := o.Doc.Components.Schemas[schemaName]
 						resourceName := getResourceTitleFromRequestSchema(schemaName, dResource)
 						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-						if err := setDeleteOperationMapping(typeToken); err != nil {
-							return nil, o.Doc, err
-						}
+						setDeleteOperationMapping(typeToken)
 					}
 				} else {
 					resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIDsHaveTypeSpecNamespace)
 					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-					if err := setDeleteOperationMapping(typeToken); err != nil {
-						return nil, o.Doc, err
-					}
+					setDeleteOperationMapping(typeToken)
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Delete.OperationID, http.MethodDelete, o.OperationIDsHaveTypeSpecNamespace)
 				resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 				typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
-				if err := setDeleteOperationMapping(typeToken); err != nil {
-					return nil, o.Doc, err
-				}
+				setDeleteOperationMapping(typeToken)
 			}
 		}
 
@@ -599,12 +557,15 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		}
 	}
 
+	if err := o.addQueryParamsToResources(); err != nil {
+		return nil, o.Doc, errors.Wrap(err, "adding query params to resources")
+	}
+
 	return &ProviderMetadata{
 		AllowedResourcesWithoutReadEndpoint: o.AllowedResourcesWithoutReadEndpoint,
 		APIToSDKNameMap:                     o.apiToSDKNameMap,
 		AutoNameMap:                         o.autoNameMap,
 		PathParamNameMap:                    o.pathParamNameMap,
-		QueryParamNameMap:                   o.queryParamNameMap,
 		ResourceCRUDMap:                     o.resourceCRUDMap,
 		SDKToAPINameMap:                     o.sdkToAPINameMap,
 	}, o.Doc, nil
@@ -655,12 +616,12 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 	if err != nil {
 		return nil, errors.Wrap(err, "generating query params type")
 	}
-	inputProps[queryParamsPropName] = pschema.PropertySpec{
+	inputProps[QueryParamsPropName] = pschema.PropertySpec{
 		Description: "Query params to send with the API request.",
 		TypeSpec:    *queryParamsType,
 	}
 	if hasRequiredQueryParams {
-		requiredInputs.Add(queryParamsPropName)
+		requiredInputs.Add(QueryParamsPropName)
 	}
 
 	outputPropType, _, err := funcPkgCtx.propertyTypeSpec(parentName, returnTypeSchema)
@@ -762,12 +723,12 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 	if err != nil {
 		panic(err)
 	}
-	inputProps[queryParamsPropName] = pschema.PropertySpec{
+	inputProps[QueryParamsPropName] = pschema.PropertySpec{
 		Description: "Query params to send with the API request.",
 		TypeSpec:    *queryParamsType,
 	}
 	if hasRequiredQueryParams {
-		requiredInputs.Add(queryParamsPropName)
+		requiredInputs.Add(QueryParamsPropName)
 	}
 
 	if returnTypeSchema.Value == nil || returnTypeSchema.Value == defaultEmptySchemaDoNotMutate {
@@ -865,9 +826,6 @@ func (o *OpenAPIContext) gatherResource(
 			}
 
 			addRequiredPathParams(*resourceTypeToken)
-			if err := o.addResourceOpQueryParams(*resourceTypeToken, queryParamsOpCreate, pathParams); err != nil {
-				return errors.Wrapf(err, "adding query params for api path %s", apiPath)
-			}
 		}
 
 		return nil
@@ -889,9 +847,6 @@ func (o *OpenAPIContext) gatherResource(
 	}
 
 	addRequiredPathParams(*resourceTypeToken)
-	if err := o.addResourceOpQueryParams(*resourceTypeToken, queryParamsOpCreate, pathParams); err != nil {
-		return errors.Wrapf(err, "adding query params for api path %s", apiPath)
-	}
 
 	return nil
 }

@@ -39,10 +39,9 @@ plus an `additionalParams` map of strings for arbitrary query params that aren't
 
 `queryParams` (and the operation property) is required only if the endpoint has a required query param.
 
-Query param names are converted to camelCase in the schema. The provider metadata includes
-`queryParamNameMap`, which maps each original API query param name to its SDK name (only for
-names that changed). Providers use it to map the properties of `queryParams` back to the API's
-query param names when building the request URL.
+Query param names are converted to camelCase in the schema. Like other properties, renamed query
+params are recorded in the `sdkToApiNameMap` and `apiToSdkNameMap` metadata. Providers use them to
+map the properties of `queryParams` back to the API's query param names when building the request URL.
 
 ## OpenAPI Conformance
 

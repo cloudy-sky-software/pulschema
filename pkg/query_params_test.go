@@ -52,24 +52,24 @@ func TestQueryParams(t *testing.T) {
 	assert.Truef(t, ok, "Expected to find a resource called Thing: %v", pkgSpec.Resources)
 
 	// The resource should have queryParams as both an input and an output.
-	assert.Contains(t, thing.InputProperties, queryParamsPropName)
-	assert.Contains(t, thing.Properties, queryParamsPropName)
-	assert.Equal(t, refPrefix+"ThingQueryParams", thing.InputProperties[queryParamsPropName].Ref)
-	assert.Equal(t, refPrefix+"ThingQueryParams", thing.Properties[queryParamsPropName].Ref)
+	assert.Contains(t, thing.InputProperties, QueryParamsPropName)
+	assert.Contains(t, thing.Properties, QueryParamsPropName)
+	assert.Equal(t, refPrefix+"ThingQueryParams", thing.InputProperties[QueryParamsPropName].Ref)
+	assert.Equal(t, refPrefix+"ThingQueryParams", thing.Properties[QueryParamsPropName].Ref)
 	// The delete and update endpoints have required query params.
-	assert.Contains(t, thing.RequiredInputs, queryParamsPropName)
+	assert.Contains(t, thing.RequiredInputs, QueryParamsPropName)
 
 	thingQueryParams, ok := pkgSpec.Types[typePrefix+"ThingQueryParams"]
 	assert.True(t, ok)
-	for _, op := range []string{queryParamsOpCreate, queryParamsOpRead, queryParamsOpUpdate, queryParamsOpDelete} {
+	for _, op := range []string{QueryParamsOpCreate, QueryParamsOpRead, QueryParamsOpUpdate, QueryParamsOpDelete} {
 		assert.Contains(t, thingQueryParams.Properties, op)
 	}
-	assert.NotContains(t, thingQueryParams.Properties, queryParamsOpPut)
-	assert.Equal(t, refPrefix+"ThingCreateQueryParams", thingQueryParams.Properties[queryParamsOpCreate].Ref)
-	assert.Equal(t, refPrefix+"ThingReadQueryParams", thingQueryParams.Properties[queryParamsOpRead].Ref)
-	assert.Equal(t, refPrefix+"ThingUpdateQueryParams", thingQueryParams.Properties[queryParamsOpUpdate].Ref)
-	assert.Equal(t, refPrefix+"ThingDeleteQueryParams", thingQueryParams.Properties[queryParamsOpDelete].Ref)
-	assert.ElementsMatch(t, []string{queryParamsOpDelete, queryParamsOpUpdate}, thingQueryParams.Required)
+	assert.NotContains(t, thingQueryParams.Properties, QueryParamsOpPut)
+	assert.Equal(t, refPrefix+"ThingCreateQueryParams", thingQueryParams.Properties[QueryParamsOpCreate].Ref)
+	assert.Equal(t, refPrefix+"ThingReadQueryParams", thingQueryParams.Properties[QueryParamsOpRead].Ref)
+	assert.Equal(t, refPrefix+"ThingUpdateQueryParams", thingQueryParams.Properties[QueryParamsOpUpdate].Ref)
+	assert.Equal(t, refPrefix+"ThingDeleteQueryParams", thingQueryParams.Properties[QueryParamsOpDelete].Ref)
+	assert.ElementsMatch(t, []string{QueryParamsOpDelete, QueryParamsOpUpdate}, thingQueryParams.Required)
 
 	createQueryParams := pkgSpec.Types[typePrefix+"ThingCreateQueryParams"]
 	assert.Equal(t, "boolean", createQueryParams.Properties["dryRun"].Type)
@@ -78,7 +78,7 @@ func TestQueryParams(t *testing.T) {
 	deleteQueryParams := pkgSpec.Types[typePrefix+"ThingDeleteQueryParams"]
 	assert.Equal(t, "boolean", deleteQueryParams.Properties["force"].Type)
 	assert.Equal(t, []string{"force"}, deleteQueryParams.Required)
-	additionalParams, ok := deleteQueryParams.Properties[additionalQueryParamsPropName]
+	additionalParams, ok := deleteQueryParams.Properties[AdditionalQueryParamsPropName]
 	assert.True(t, ok)
 	assert.Equal(t, typeObject, additionalParams.Type)
 	assert.Equal(t, typeString, additionalParams.AdditionalProperties.Type)
@@ -102,14 +102,14 @@ func TestQueryParams(t *testing.T) {
 	gizmoPrefix := "fake-package:gizmos/v1:"
 	gizmo, ok := pkgSpec.Resources[gizmoPrefix+"Gizmo"]
 	assert.Truef(t, ok, "Expected to find a resource called Gizmo: %v", pkgSpec.Resources)
-	assert.Equal(t, "#/types/"+gizmoPrefix+"GizmoQueryParams", gizmo.InputProperties[queryParamsPropName].Ref)
-	assert.Contains(t, gizmo.RequiredInputs, queryParamsPropName)
+	assert.Equal(t, "#/types/"+gizmoPrefix+"GizmoQueryParams", gizmo.InputProperties[QueryParamsPropName].Ref)
+	assert.Contains(t, gizmo.RequiredInputs, QueryParamsPropName)
 
 	gizmoQueryParams := pkgSpec.Types[gizmoPrefix+"GizmoQueryParams"]
-	for _, op := range []string{queryParamsOpCreate, queryParamsOpRead, queryParamsOpPut, queryParamsOpDelete} {
+	for _, op := range []string{QueryParamsOpCreate, QueryParamsOpRead, QueryParamsOpPut, QueryParamsOpDelete} {
 		assert.Contains(t, gizmoQueryParams.Properties, op)
 	}
-	assert.Equal(t, []string{queryParamsOpDelete}, gizmoQueryParams.Required)
+	assert.Equal(t, []string{QueryParamsOpDelete}, gizmoQueryParams.Required)
 	assert.Contains(t, pkgSpec.Types[gizmoPrefix+"GizmoCreateQueryParams"].Properties, "idempotencyKey")
 	assert.Contains(t, pkgSpec.Types[gizmoPrefix+"GizmoReadQueryParams"].Properties, "includeParts")
 	assert.Equal(t, []string{"purge"}, pkgSpec.Types[gizmoPrefix+"GizmoDeleteQueryParams"].Required)
@@ -117,13 +117,13 @@ func TestQueryParams(t *testing.T) {
 	// Functions.
 	getFunc, ok := pkgSpec.Functions[typePrefix+"getThing"]
 	assert.Truef(t, ok, "Expected to find a get func getThing: %v", pkgSpec.Functions)
-	assert.Equal(t, refPrefix+"GetThingQueryParams", getFunc.Inputs.Properties[queryParamsPropName].Ref)
-	assert.NotContains(t, getFunc.Inputs.Required, queryParamsPropName)
+	assert.Equal(t, refPrefix+"GetThingQueryParams", getFunc.Inputs.Properties[QueryParamsPropName].Ref)
+	assert.NotContains(t, getFunc.Inputs.Required, QueryParamsPropName)
 
 	listFunc, ok := pkgSpec.Functions[typePrefix+"listThings"]
 	assert.Truef(t, ok, "Expected to find a list func listThings: %v", pkgSpec.Functions)
-	assert.Equal(t, refPrefix+"ListThingsQueryParams", listFunc.Inputs.Properties[queryParamsPropName].Ref)
-	assert.NotContains(t, listFunc.Inputs.Required, queryParamsPropName)
+	assert.Equal(t, refPrefix+"ListThingsQueryParams", listFunc.Inputs.Properties[QueryParamsPropName].Ref)
+	assert.NotContains(t, listFunc.Inputs.Required, QueryParamsPropName)
 
 	listQueryParams := pkgSpec.Types[typePrefix+"ListThingsQueryParams"]
 	assert.Equal(t, "integer", listQueryParams.Properties["pageSize"].Type)
@@ -133,7 +133,6 @@ func TestQueryParams(t *testing.T) {
 	assert.Len(t, sortEnum.Enum, 2)
 
 	// Name maps.
-	assert.Equal(t, "pageSize", metadata.QueryParamNameMap["page_size"])
 	assert.Equal(t, "page_size", metadata.SDKToAPINameMap["pageSize"])
 
 	// The resulting schema should bind without errors.

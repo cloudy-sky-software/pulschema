@@ -4,6 +4,7 @@ package pkg
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -16,22 +17,26 @@ import (
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
 )
 
+const (
+	// QueryParamsPropName is the name of the input property of
+	// resources and functions that holds the query params to
+	// send with the API requests.
+	QueryParamsPropName = "queryParams"
+	// AdditionalQueryParamsPropName is the name of the property
+	// of each query params type that holds arbitrary query params
+	// not defined in the API spec.
+	AdditionalQueryParamsPropName = "additionalParams"
+)
+
 // Names of the properties of a resource's queryParams type,
 // one for each of the resource's CRUD operations.
 const (
-	queryParamsOpCreate = "create"
-	queryParamsOpRead   = "read"
-	queryParamsOpUpdate = "update"
-	queryParamsOpPut    = "put"
-	queryParamsOpDelete = "delete"
+	QueryParamsOpCreate = "create"
+	QueryParamsOpRead   = "read"
+	QueryParamsOpUpdate = "update"
+	QueryParamsOpPut    = "put"
+	QueryParamsOpDelete = "delete"
 )
-
-// resourceOpQueryParams is the query params type
-// for a single CRUD operation of a resource.
-type resourceOpQueryParams struct {
-	typeSpec pschema.TypeSpec
-	required bool
-}
 
 // mergeParameters returns a new slice containing the path-level
 // common parameters and the operation-level parameters. An
@@ -108,7 +113,6 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 		if sdkName != paramName {
 			addNameOverride(sdkName, paramName, o.sdkToAPINameMap)
 			addNameOverride(paramName, sdkName, o.apiToSDKNameMap)
-			addNameOverride(paramName, sdkName, o.queryParamNameMap)
 		}
 
 		propSpec := pschema.PropertySpec{
@@ -140,11 +144,11 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 		}
 	}
 
-	if _, ok := properties[additionalQueryParamsPropName]; ok {
+	if _, ok := properties[AdditionalQueryParamsPropName]; ok {
 		glog.Warningf("Query params type %s has a query param called %s. "+
-			"Arbitrary query params cannot be specified for this endpoint.", typeName, additionalQueryParamsPropName)
+			"Arbitrary query params cannot be specified for this endpoint.", typeName, AdditionalQueryParamsPropName)
 	} else {
-		properties[additionalQueryParamsPropName] = pschema.PropertySpec{
+		properties[AdditionalQueryParamsPropName] = pschema.PropertySpec{
 			Description: "Additional query params to send with the request that are not defined in the API spec.",
 			TypeSpec: pschema.TypeSpec{
 				Type:                 typeObject,
@@ -166,100 +170,127 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 	return &pschema.TypeSpec{Ref: typesSchemaRefPrefix + tok}, len(required) > 0, nil
 }
 
-// addResourceOpQueryParams generates the query params type for a
-// CRUD operation of a resource and records it, so that it can be
-// added to the resource's queryParams type.
+// addQueryParamsToResources adds a queryParams input (and output)
+// property to each resource gathered from the API spec. The
+// queryParams type of a resource has a property for each of its
+// CRUD operations, each of which refers to a type with the query
+// params of that operation's endpoint.
 //
-// The endpoints for a resource can be processed in any order. So
-// if the resource hasn't been gathered yet, the queryParams property
-// is added to it once its create endpoint is processed.
-func (o *OpenAPIContext) addResourceOpQueryParams(tok, opName string, params openapi3.Parameters) error {
-	tokParts := strings.Split(tok, ":")
-	module, resourceName := tokParts[1], tokParts[2]
+// This must be called after all paths have been processed since
+// the endpoints for a resource can be processed in any order.
+func (o *OpenAPIContext) addQueryParamsToResources() error {
+	toks := make([]string, 0, len(o.resourceCRUDMap))
+	for tok := range o.resourceCRUDMap {
+		toks = append(toks, tok)
+	}
+	sort.Strings(toks)
 
-	typeName := resourceName + ToPascalCase(opName) + "QueryParams"
-	typeSpec, hasRequired, err := o.genQueryParamsType(module, typeName, params)
-	if err != nil {
-		return errors.Wrapf(err, "generating %s query params type for resource %s", opName, tok)
+	for _, tok := range toks {
+		resourceSpec, ok := o.Pkg.Resources[tok]
+		if !ok {
+			continue
+		}
+
+		if _, ok := resourceSpec.InputProperties[QueryParamsPropName]; ok {
+			glog.Warningf("Resource %s already has an input property called %s. Skipping query params for it.", tok, QueryParamsPropName)
+			continue
+		}
+		if _, ok := resourceSpec.Properties[QueryParamsPropName]; ok {
+			glog.Warningf("Resource %s already has an output property called %s. Skipping query params for it.", tok, QueryParamsPropName)
+			continue
+		}
+
+		crud := o.resourceCRUDMap[tok]
+		tokParts := strings.Split(tok, ":")
+		module, resourceName := tokParts[1], tokParts[2]
+
+		ops := []struct {
+			name string
+			path *string
+			op   func(*openapi3.PathItem) *openapi3.Operation
+		}{
+			{QueryParamsOpCreate, crud.C, func(p *openapi3.PathItem) *openapi3.Operation {
+				// Resources can be created with a PUT request
+				// when there is no POST endpoint.
+				if p.Post != nil {
+					return p.Post
+				}
+				return p.Put
+			}},
+			{QueryParamsOpRead, crud.R, func(p *openapi3.PathItem) *openapi3.Operation { return p.Get }},
+			{QueryParamsOpUpdate, crud.U, func(p *openapi3.PathItem) *openapi3.Operation { return p.Patch }},
+			{QueryParamsOpPut, crud.P, func(p *openapi3.PathItem) *openapi3.Operation { return p.Put }},
+			{QueryParamsOpDelete, crud.D, func(p *openapi3.PathItem) *openapi3.Operation { return p.Delete }},
+		}
+
+		properties := make(map[string]pschema.PropertySpec)
+		required := codegen.NewStringSet()
+		for _, op := range ops {
+			if op.path == nil {
+				continue
+			}
+			pathItem := o.Doc.Paths.Find(*op.path)
+			if pathItem == nil {
+				return errors.Errorf("path item for path %s not found", *op.path)
+			}
+			operation := op.op(pathItem)
+			if operation == nil {
+				continue
+			}
+
+			typeName := resourceName + ToPascalCase(op.name) + "QueryParams"
+			typeSpec, hasRequired, err := o.genQueryParamsType(module, typeName, mergeParameters(pathItem.Parameters, operation.Parameters))
+			if err != nil {
+				return errors.Wrapf(err, "generating %s query params type for resource %s", op.name, tok)
+			}
+
+			properties[op.name] = pschema.PropertySpec{
+				Description: fmt.Sprintf("Query params for the %s operation.", op.name),
+				TypeSpec:    *typeSpec,
+			}
+			if hasRequired {
+				required.Add(op.name)
+			}
+		}
+
+		if len(properties) == 0 {
+			continue
+		}
+
+		typeTok := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName+"QueryParams")
+		o.Pkg.Types[typeTok] = pschema.ComplexTypeSpec{
+			ObjectTypeSpec: pschema.ObjectTypeSpec{
+				Description: "Query params for each of the operations of the resource.",
+				Type:        typeObject,
+				Properties:  properties,
+				Required:    required.SortedValues(),
+			},
+		}
+
+		queryParamsProp := pschema.PropertySpec{
+			Description: "Query params to send with the API requests for this resource.",
+			TypeSpec:    pschema.TypeSpec{Ref: typesSchemaRefPrefix + typeTok},
+		}
+
+		if resourceSpec.InputProperties == nil {
+			resourceSpec.InputProperties = make(map[string]pschema.PropertySpec)
+		}
+		resourceSpec.InputProperties[QueryParamsPropName] = queryParamsProp
+		// Providers can read the query params from the
+		// state during Read and Delete operations.
+		if resourceSpec.Properties == nil {
+			resourceSpec.Properties = make(map[string]pschema.PropertySpec)
+		}
+		resourceSpec.Properties[QueryParamsPropName] = queryParamsProp
+
+		if len(required) > 0 {
+			requiredInputs := codegen.NewStringSet(resourceSpec.RequiredInputs...)
+			requiredInputs.Add(QueryParamsPropName)
+			resourceSpec.RequiredInputs = requiredInputs.SortedValues()
+		}
+
+		o.Pkg.Resources[tok] = resourceSpec
 	}
 
-	if _, ok := o.resourceQueryParams[tok]; !ok {
-		o.resourceQueryParams[tok] = make(map[string]resourceOpQueryParams)
-	}
-	o.resourceQueryParams[tok][opName] = resourceOpQueryParams{
-		typeSpec: *typeSpec,
-		required: hasRequired,
-	}
-
-	o.setResourceQueryParamsProp(tok)
 	return nil
-}
-
-// setResourceQueryParamsProp (re)generates the queryParams type for
-// a resource from the operation query params types recorded so far
-// and sets the queryParams property on the resource. It does nothing
-// if the resource hasn't been gathered yet.
-func (o *OpenAPIContext) setResourceQueryParamsProp(tok string) {
-	// Only consider resources that were gathered from the
-	// current spec, i.e. those with a create endpoint.
-	crud, ok := o.resourceCRUDMap[tok]
-	if !ok || crud.C == nil {
-		return
-	}
-	resourceSpec, ok := o.Pkg.Resources[tok]
-	if !ok {
-		return
-	}
-
-	tokParts := strings.Split(tok, ":")
-	module, resourceName := tokParts[1], tokParts[2]
-	typeTok := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName+"QueryParams")
-	typeRef := typesSchemaRefPrefix + typeTok
-
-	existingInput, hasInput := resourceSpec.InputProperties[queryParamsPropName]
-	existingOutput, hasOutput := resourceSpec.Properties[queryParamsPropName]
-	if (hasInput && existingInput.Ref != typeRef) || (hasOutput && existingOutput.Ref != typeRef) {
-		glog.Warningf("Resource %s already has a property called %s. Skipping query params for it.", tok, queryParamsPropName)
-		return
-	}
-
-	properties := make(map[string]pschema.PropertySpec)
-	required := codegen.NewStringSet()
-	for opName, opQueryParams := range o.resourceQueryParams[tok] {
-		properties[opName] = pschema.PropertySpec{
-			Description: fmt.Sprintf("Query params for the %s operation.", opName),
-			TypeSpec:    opQueryParams.typeSpec,
-		}
-		if opQueryParams.required {
-			required.Add(opName)
-		}
-	}
-
-	o.Pkg.Types[typeTok] = pschema.ComplexTypeSpec{
-		ObjectTypeSpec: pschema.ObjectTypeSpec{
-			Description: "Query params for each of the operations of the resource.",
-			Type:        typeObject,
-			Properties:  properties,
-			Required:    required.SortedValues(),
-		},
-	}
-
-	queryParamsProp := pschema.PropertySpec{
-		Description: "Query params to send with the API requests for this resource.",
-		TypeSpec:    pschema.TypeSpec{Ref: typeRef},
-	}
-
-	resourceSpec.InputProperties[queryParamsPropName] = queryParamsProp
-	if resourceSpec.Properties == nil {
-		resourceSpec.Properties = make(map[string]pschema.PropertySpec)
-	}
-	resourceSpec.Properties[queryParamsPropName] = queryParamsProp
-
-	if len(required) > 0 {
-		requiredInputs := codegen.NewStringSet(resourceSpec.RequiredInputs...)
-		requiredInputs.Add(queryParamsPropName)
-		resourceSpec.RequiredInputs = requiredInputs.SortedValues()
-	}
-
-	o.Pkg.Resources[tok] = resourceSpec
 }
