@@ -30,8 +30,6 @@ const (
 	typesSchemaRefPrefix      = "#/types/"
 	jsonMimeType              = "application/json"
 	plainTextMimeType         = "text/plain"
-	parameterLocationPath     = "path"
-	parameterLocationQuery    = "query"
 	pathSeparator             = "/"
 
 	propertyName   = "name"
@@ -590,7 +588,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 	parameters := mergeParameters(pathItem.Parameters, pathItem.Get.Parameters)
 	for _, param := range parameters {
-		if param.Value.In != parameterLocationPath {
+		if param.Value.In != openapi3.ParameterInPath {
 			continue
 		}
 
@@ -697,7 +695,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 	parameters := mergeParameters(pathItem.Parameters, pathItem.Get.Parameters)
 
 	for _, param := range parameters {
-		if param.Value.In != parameterLocationPath {
+		if param.Value.In != openapi3.ParameterInPath {
 			continue
 		}
 
@@ -763,7 +761,7 @@ func (o *OpenAPIContext) gatherResource(
 	resourceName string,
 	resourceRequestType openapi3.Schema,
 	resourceResponseType *openapi3.Schema,
-	pathParams openapi3.Parameters,
+	parameters openapi3.Parameters,
 	module string) error {
 
 	addRequiredPathParams := func(typeToken string) {
@@ -771,8 +769,8 @@ func (o *OpenAPIContext) gatherResource(
 
 		// If this endpoint path has path parameters,
 		// then those should be required inputs too.
-		for _, param := range pathParams {
-			if param.Value.In != parameterLocationPath {
+		for _, param := range parameters {
+			if param.Value.In != openapi3.ParameterInPath {
 				continue
 			}
 

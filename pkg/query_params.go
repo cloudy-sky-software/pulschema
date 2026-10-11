@@ -103,7 +103,7 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 	required := codegen.NewStringSet()
 
 	for _, param := range params {
-		if param == nil || param.Value == nil || param.Value.In != parameterLocationQuery {
+		if param == nil || param.Value == nil || param.Value.In != openapi3.ParameterInQuery {
 			continue
 		}
 

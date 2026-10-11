@@ -211,7 +211,7 @@ func ensureIDHierarchyInRequestPath(path string, pathItem *openapi3.PathItem) st
 
 	updatePathParamNames := func(params openapi3.Parameters) {
 		for _, param := range params {
-			if param.Value.In != parameterLocationPath {
+			if param.Value.In != openapi3.ParameterInPath {
 				continue
 			}
 
