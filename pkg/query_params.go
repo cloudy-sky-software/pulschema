@@ -117,7 +117,7 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 
 		propSpec := pschema.PropertySpec{
 			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: typeString},
+			TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 		}
 
 		// Params can be content-encoded instead of having a schema,
@@ -151,8 +151,8 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 		properties[AdditionalQueryParamsPropName] = pschema.PropertySpec{
 			Description: "Additional query params to send with the request that are not defined in the API spec.",
 			TypeSpec: pschema.TypeSpec{
-				Type:                 typeObject,
-				AdditionalProperties: &pschema.TypeSpec{Type: typeString},
+				Type:                 openapi3.TypeObject,
+				AdditionalProperties: &pschema.TypeSpec{Type: openapi3.TypeString},
 			},
 		}
 	}
@@ -161,7 +161,7 @@ func (o *OpenAPIContext) genQueryParamsType(module, typeName string, params open
 	o.Pkg.Types[tok] = pschema.ComplexTypeSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: "Query params for the API request.",
-			Type:        typeObject,
+			Type:        openapi3.TypeObject,
 			Properties:  properties,
 			Required:    required.SortedValues(),
 		},
@@ -261,7 +261,7 @@ func (o *OpenAPIContext) addQueryParamsToResources() error {
 		o.Pkg.Types[typeTok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: "Query params for each of the operations of the resource.",
-				Type:        typeObject,
+				Type:        openapi3.TypeObject,
 				Properties:  properties,
 				Required:    required.SortedValues(),
 			},
