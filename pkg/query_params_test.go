@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 
 	pschema "github.com/pulumi/pulumi/pkg/v3/codegen/schema"
@@ -80,8 +81,8 @@ func TestQueryParams(t *testing.T) {
 	assert.Equal(t, []string{"force"}, deleteQueryParams.Required)
 	additionalParams, ok := deleteQueryParams.Properties[AdditionalQueryParamsPropName]
 	assert.True(t, ok)
-	assert.Equal(t, typeObject, additionalParams.Type)
-	assert.Equal(t, typeString, additionalParams.AdditionalProperties.Type)
+	assert.Equal(t, openapi3.TypeObject, additionalParams.Type)
+	assert.Equal(t, openapi3.TypeString, additionalParams.AdditionalProperties.Type)
 
 	// The path-level common query param should be in each of the
 	// operation types for the /{id} path.

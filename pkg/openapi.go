@@ -34,8 +34,6 @@ const (
 	parameterLocationQuery    = "query"
 	pathSeparator             = "/"
 
-	typeString     = "string"
-	typeObject     = "object"
 	propertyName   = "name"
 	languageCSharp = "csharp"
 )
@@ -607,7 +605,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 
 		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: typeString},
+			TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 		}
 		requiredInputs.Add(sdkName)
 	}
@@ -714,7 +712,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 
 		inputProps[sdkName] = pschema.PropertySpec{
 			Description: param.Value.Description,
-			TypeSpec:    pschema.TypeSpec{Type: typeString},
+			TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 		}
 		requiredInputs.Add(sdkName)
 	}
@@ -789,7 +787,7 @@ func (o *OpenAPIContext) gatherResource(
 
 			resourceSpec.InputProperties[sdkName] = pschema.PropertySpec{
 				Description: param.Value.Description,
-				TypeSpec:    pschema.TypeSpec{Type: typeString},
+				TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 			}
 		}
 
@@ -889,7 +887,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 					propSpec = pschema.PropertySpec{
 						TypeSpec: pschema.TypeSpec{
-							Type:                 typeObject,
+							Type:                 openapi3.TypeObject,
 							AdditionalProperties: typeSpec,
 						},
 					}
@@ -955,7 +953,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 
 						propSpec = pschema.PropertySpec{
 							TypeSpec: pschema.TypeSpec{
-								Type:                 typeObject,
+								Type:                 openapi3.TypeObject,
 								AdditionalProperties: typeSpec,
 							},
 						}
@@ -1145,7 +1143,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	o.Pkg.Resources[typeToken] = pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: requestBodySchema.Description,
-			Type:        typeObject,
+			Type:        openapi3.TypeObject,
 			Properties:  properties,
 			Required:    requiredOutputs.SortedValues(),
 		},
@@ -1245,7 +1243,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 			ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 				ObjectTypeSpec: pschema.ObjectTypeSpec{
 					Description: typeSchema.Value.Description,
-					Type:        typeObject,
+					Type:        openapi3.TypeObject,
 					Properties:  specs,
 					Required:    requiredSpecs.SortedValues(),
 				},
@@ -1268,7 +1266,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
-				Type:        typeObject,
+				Type:        openapi3.TypeObject,
 				Properties:  specs,
 				Required:    requiredSpecs.SortedValues(),
 			},
@@ -1325,7 +1323,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
-				Type:        typeObject,
+				Type:        openapi3.TypeObject,
 				Properties:  properties,
 				Required:    requiredPropSpecs.SortedValues(),
 			},
@@ -1366,14 +1364,14 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 	// All other types.
 	switch {
-	case valType.Is(openapi3.TypeInteger):
-		return &pschema.TypeSpec{Type: "integer"}, false, nil
-	case valType.Is(openapi3.TypeString):
-		return &pschema.TypeSpec{Type: typeString}, false, nil
-	case valType.Is(openapi3.TypeBoolean):
-		return &pschema.TypeSpec{Type: "boolean"}, false, nil
-	case valType.Is(openapi3.TypeNumber):
-		return &pschema.TypeSpec{Type: "number"}, false, nil
+	case valType.Includes(openapi3.TypeInteger):
+		return &pschema.TypeSpec{Type: openapi3.TypeInteger}, false, nil
+	case valType.Includes(openapi3.TypeString):
+		return &pschema.TypeSpec{Type: openapi3.TypeString}, false, nil
+	case valType.Includes(openapi3.TypeBoolean):
+		return &pschema.TypeSpec{Type: openapi3.TypeBoolean}, false, nil
+	case valType.Includes(openapi3.TypeNumber):
+		return &pschema.TypeSpec{Type: openapi3.TypeNumber}, false, nil
 	case valType.Is(openapi3.TypeObject):
 		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
 	case valType.Is(openapi3.TypeArray):
@@ -1422,7 +1420,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 					}
 
 					typeSpec = &pschema.TypeSpec{
-						Type:                 typeObject,
+						Type:                 openapi3.TypeObject,
 						AdditionalProperties: addlPropsTypeSpec,
 					}
 				}

@@ -39,7 +39,7 @@ var testPulumiPkg = pschema.PackageSpec{
 		Variables: map[string]pschema.PropertySpec{
 			"apiKey": {
 				Description: "The API key",
-				TypeSpec:    pschema.TypeSpec{Type: typeString},
+				TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 				Language: map[string]pschema.RawMessage{
 					languageCSharp: rawMessage(map[string]interface{}{
 						propertyName: "ApiKey",
@@ -53,7 +53,7 @@ var testPulumiPkg = pschema.PackageSpec{
 	Provider: &pschema.ResourceSpec{
 		ObjectTypeSpec: pschema.ObjectTypeSpec{
 			Description: "The provider type for the FakeCloud package.",
-			Type:        typeObject,
+			Type:        openapi3.TypeObject,
 		},
 		InputProperties: map[string]pschema.PropertySpec{
 			"apiKey": {
@@ -63,7 +63,7 @@ var testPulumiPkg = pschema.PackageSpec{
 					},
 				},
 				Description: "The FakeCloud API key.",
-				TypeSpec:    pschema.TypeSpec{Type: typeString},
+				TypeSpec:    pschema.TypeSpec{Type: openapi3.TypeString},
 				Language: map[string]pschema.RawMessage{
 					languageCSharp: rawMessage(map[string]interface{}{
 						propertyName: "ApiKey",
