@@ -870,28 +870,24 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	for propName, prop := range requestBodySchema.Properties {
 		var propSpec pschema.PropertySpec
 
-		if prop.Value.AdditionalProperties.Has != nil {
-			allowed := *prop.Value.AdditionalProperties.Has
-			if allowed {
-				// There's only ever going to be a single property
-				// in the map, which will either have an inlined
-				// properties schema or have a type ref. Either way,
-				// the `propertyTypeSpec` method will take care of it.
-				for _, v := range prop.Value.Properties {
-					typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
-					if err != nil {
-						return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
-					}
-
-					propSpec = pschema.PropertySpec{
-						TypeSpec: pschema.TypeSpec{
-							Type:                 openapi3.TypeObject,
-							AdditionalProperties: typeSpec,
-						},
-					}
+		if prop.Value.AdditionalProperties.Has != nil || prop.Value.AdditionalProperties.Schema != nil {
+			if prop.Value.AdditionalProperties.Schema != nil {
+				typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+				if err != nil {
+					return nil, errors.Wrapf(err, "generating additional properties type spec for %s in request body schema", propName)
+				}
+				propSpec = pschema.PropertySpec{
+					TypeSpec: *typeSpec,
 				}
 			} else {
-				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
+				propSpec = pschema.PropertySpec{
+					TypeSpec: pschema.TypeSpec{
+						Type: openapi3.TypeObject,
+						AdditionalProperties: &pschema.TypeSpec{
+							Ref: "pulumi.json#/Any",
+						},
+					},
+				}
 			}
 		} else {
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
@@ -936,28 +932,24 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		for propName, prop := range responseBodySchema.Properties {
 			var propSpec pschema.PropertySpec
 
-			if prop.Value.AdditionalProperties.Has != nil {
-				allowed := *prop.Value.AdditionalProperties.Has
-				if allowed {
-					// There's only ever going to be a single property
-					// in the map, which will either have an inlined
-					// properties schema or have a type ref. Either way,
-					// the `propertyTypeSpec` method will take care of it.
-					for _, v := range prop.Value.Properties {
-						typeSpec, _, err := pkgCtx.propertyTypeSpec(propName, *v)
-						if err != nil {
-							return nil, errors.Wrapf(err, "generating additional properties type spec for %s (path: %s)", propName, apiPath)
-						}
-
-						propSpec = pschema.PropertySpec{
-							TypeSpec: pschema.TypeSpec{
-								Type:                 openapi3.TypeObject,
-								AdditionalProperties: typeSpec,
-							},
-						}
+			if prop.Value.AdditionalProperties.Has != nil || prop.Value.AdditionalProperties.Schema != nil {
+				if prop.Value.AdditionalProperties.Schema != nil {
+					typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+					if err != nil {
+						return nil, errors.Wrapf(err, "generating additional properties for %s in response body schema", propName)
+					}
+					propSpec = pschema.PropertySpec{
+						TypeSpec: *typeSpec,
 					}
 				} else {
-					propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
+					propSpec = pschema.PropertySpec{
+						TypeSpec: pschema.TypeSpec{
+							Type: openapi3.TypeObject,
+							AdditionalProperties: &pschema.TypeSpec{
+								Ref: "pulumi.json#/Any",
+							},
+						},
+					}
 				}
 			} else {
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
@@ -1371,28 +1363,6 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	case valType.Includes(openapi3.TypeNumber):
 		return &pschema.TypeSpec{Type: openapi3.TypeNumber}, false, nil
 	case valType.Is(openapi3.TypeObject):
-		// 		if propSchema.Value.AdditionalProperties.Has != nil && *propSchema.Value.AdditionalProperties.Has {
-		// 			allowed := len(propSchema.Value.AdditionalProperties.Schema.Value.Properties) > 0
-		// 			if allowed {
-		// 				// There's only ever going to be a single property
-		// 				// in the map, which will either have an inlined
-		// 				// properties schema or have a type ref. Either way,
-		// 				// the `propertyTypeSpec` method will take care of it.
-		// 				for _, v := range propSchema.Value.Properties {
-		// 					addlPropsTypeSpec, _, err := ctx.propertyTypeSpec(parentName, *v)
-		// 					if err != nil {
-		// 						return nil, false, errors.Wrapf(err, "generating additional properties type spec for %s", parentName)
-		// 					}
-		//
-		// 					return &pschema.TypeSpec{
-		// 						Type:                 openapi3.TypeObject,
-		// 						AdditionalProperties: addlPropsTypeSpec,
-		// 					}, false, nil
-		// 				}
-		// 			}
-		// 		}
-
-		// Fallback to a generic "any" typedef.
 		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
 	case valType.Is(openapi3.TypeArray):
 		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
@@ -1406,6 +1376,40 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	}
 
 	return nil, false, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
+}
+
+func (ctx *resourceContext) genAdditionalPropertiesTypeSpec(parentName, sdkName, description string, typeSchema openapi3.Schema) (*pschema.TypeSpec, error) {
+	if len(typeSchema.Properties) == 0 {
+		return &pschema.TypeSpec{
+			Type: openapi3.TypeObject,
+			AdditionalProperties: &pschema.TypeSpec{
+				Type: typeSchema.Type.Slice()[0],
+			},
+		}, nil
+	}
+	propertiesSpecs, requiredProps, err := ctx.genProperties(sdkName, typeSchema)
+	if err != nil {
+		return nil, errors.Wrapf(err, "generating additional properties type spec for %s (parentName: %s)", sdkName, parentName)
+	}
+
+	typName := parentName + ToPascalCase(sdkName) + "Properties"
+	tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
+	ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
+		ObjectTypeSpec: pschema.ObjectTypeSpec{
+			Description: description,
+			Type:        openapi3.TypeObject,
+			Properties:  propertiesSpecs,
+			Required:    requiredProps.SortedValues(),
+		},
+	}
+	referencedTypeName := fmt.Sprintf("#/types/%s", tok)
+
+	return &pschema.TypeSpec{
+		Type: openapi3.TypeObject,
+		AdditionalProperties: &pschema.TypeSpec{
+			Ref: referencedTypeName,
+		},
+	}, nil
 }
 
 // genProperties returns a map of the property names and their corresponding
@@ -1426,28 +1430,15 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var typeSpec *pschema.TypeSpec
 		var err error
 
-		if value.Value.AdditionalProperties.Has != nil {
-			allowed := *value.Value.AdditionalProperties.Has && len(value.Value.Properties) > 0
-			if allowed {
-				// There's only ever going to be a single property
-				// in the map, which will either have an inlined
-				// properties schema or have a type ref. Either way,
-				// the `propertyTypeSpec` method will take care of it.
-				for _, v := range value.Value.Properties {
-					addlPropsTypeSpec, _, err := ctx.propertyTypeSpec(sdkName, *v)
-					if err != nil {
-						return nil, nil, errors.Wrapf(err, "generating additional properties type spec for %s (parentName: %s)", sdkName, parentName)
-					}
-
-					typeSpec = &pschema.TypeSpec{
-						Type:                 openapi3.TypeObject,
-						AdditionalProperties: addlPropsTypeSpec,
-					}
-				}
+		if value.Value.AdditionalProperties.Has != nil || value.Value.AdditionalProperties.Schema != nil {
+			if value.Value.AdditionalProperties.Schema != nil {
+				typeSpec, err = ctx.genAdditionalPropertiesTypeSpec(parentName, sdkName, value.Value.Description, *value.Value.AdditionalProperties.Schema.Value)
 			} else {
-				typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
-				if err != nil {
-					return nil, nil, errors.Wrapf(err, "property %s", name)
+				typeSpec = &pschema.TypeSpec{
+					Type: openapi3.TypeObject,
+					AdditionalProperties: &pschema.TypeSpec{
+						Ref: "pulumi.json#/Any",
+					},
 				}
 			}
 		} else {

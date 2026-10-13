@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestBug441(t *testing.T) {
 		assert.NotEmpty(t, machineConfig.Properties)
 		assert.Contains(t, machineConfig.Properties, "checks")
 		checksProperty := machineConfig.Properties["checks"]
-		t.Logf("%v", checksProperty)
 		assert.NotNil(t, checksProperty.AdditionalProperties)
+		assert.Equal(t, fmt.Sprintf("#/types/%s:machines:ChecksProperties", packageName), checksProperty.AdditionalProperties.Ref)
 	})
 }
