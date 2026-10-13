@@ -1371,6 +1371,28 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	case valType.Includes(openapi3.TypeNumber):
 		return &pschema.TypeSpec{Type: openapi3.TypeNumber}, false, nil
 	case valType.Is(openapi3.TypeObject):
+		// 		if propSchema.Value.AdditionalProperties.Has != nil && *propSchema.Value.AdditionalProperties.Has {
+		// 			allowed := len(propSchema.Value.AdditionalProperties.Schema.Value.Properties) > 0
+		// 			if allowed {
+		// 				// There's only ever going to be a single property
+		// 				// in the map, which will either have an inlined
+		// 				// properties schema or have a type ref. Either way,
+		// 				// the `propertyTypeSpec` method will take care of it.
+		// 				for _, v := range propSchema.Value.Properties {
+		// 					addlPropsTypeSpec, _, err := ctx.propertyTypeSpec(parentName, *v)
+		// 					if err != nil {
+		// 						return nil, false, errors.Wrapf(err, "generating additional properties type spec for %s", parentName)
+		// 					}
+		//
+		// 					return &pschema.TypeSpec{
+		// 						Type:                 openapi3.TypeObject,
+		// 						AdditionalProperties: addlPropsTypeSpec,
+		// 					}, false, nil
+		// 				}
+		// 			}
+		// 		}
+
+		// Fallback to a generic "any" typedef.
 		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
 	case valType.Is(openapi3.TypeArray):
 		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
