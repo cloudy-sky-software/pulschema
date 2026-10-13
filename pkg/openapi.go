@@ -872,24 +872,22 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 	for propName, prop := range requestBodySchema.Properties {
 		var propSpec pschema.PropertySpec
 
-		if prop.Value.AdditionalProperties.Has != nil || prop.Value.AdditionalProperties.Schema != nil {
-			if prop.Value.AdditionalProperties.Schema != nil {
-				typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
-				if err != nil {
-					return nil, errors.Wrapf(err, "generating additional properties type spec for %s in request body schema", propName)
-				}
-				propSpec = pschema.PropertySpec{
-					TypeSpec: *typeSpec,
-				}
-			} else {
-				propSpec = pschema.PropertySpec{
-					TypeSpec: pschema.TypeSpec{
-						Type: openapi3.TypeObject,
-						AdditionalProperties: &pschema.TypeSpec{
-							Ref: pulumiAnyType,
-						},
+		if prop.Value.AdditionalProperties.Schema != nil {
+			typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+			if err != nil {
+				return nil, errors.Wrapf(err, "generating additional properties type spec for %s in request body schema", propName)
+			}
+			propSpec = pschema.PropertySpec{
+				TypeSpec: *typeSpec,
+			}
+		} else if prop.Value.AdditionalProperties.Has != nil && *prop.Value.AdditionalProperties.Has {
+			propSpec = pschema.PropertySpec{
+				TypeSpec: pschema.TypeSpec{
+					Type: openapi3.TypeObject,
+					AdditionalProperties: &pschema.TypeSpec{
+						Ref: pulumiAnyType,
 					},
-				}
+				},
 			}
 		} else {
 			propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
@@ -934,24 +932,22 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		for propName, prop := range responseBodySchema.Properties {
 			var propSpec pschema.PropertySpec
 
-			if prop.Value.AdditionalProperties.Has != nil || prop.Value.AdditionalProperties.Schema != nil {
-				if prop.Value.AdditionalProperties.Schema != nil {
-					typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
-					if err != nil {
-						return nil, errors.Wrapf(err, "generating additional properties for %s in response body schema", propName)
-					}
-					propSpec = pschema.PropertySpec{
-						TypeSpec: *typeSpec,
-					}
-				} else {
-					propSpec = pschema.PropertySpec{
-						TypeSpec: pschema.TypeSpec{
-							Type: openapi3.TypeObject,
-							AdditionalProperties: &pschema.TypeSpec{
-								Ref: pulumiAnyType,
-							},
+			if prop.Value.AdditionalProperties.Schema != nil {
+				typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+				if err != nil {
+					return nil, errors.Wrapf(err, "generating additional properties for %s in response body schema", propName)
+				}
+				propSpec = pschema.PropertySpec{
+					TypeSpec: *typeSpec,
+				}
+			} else if prop.Value.AdditionalProperties.Has != nil && *prop.Value.AdditionalProperties.Has {
+				propSpec = pschema.PropertySpec{
+					TypeSpec: pschema.TypeSpec{
+						Type: openapi3.TypeObject,
+						AdditionalProperties: &pschema.TypeSpec{
+							Ref: pulumiAnyType,
 						},
-					}
+					},
 				}
 			} else {
 				propSpec = pkgCtx.genPropertySpec(ToPascalCase(propName), *prop)
@@ -1432,16 +1428,14 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var typeSpec *pschema.TypeSpec
 		var err error
 
-		if value.Value.AdditionalProperties.Has != nil || value.Value.AdditionalProperties.Schema != nil {
-			if value.Value.AdditionalProperties.Schema != nil {
-				typeSpec, err = ctx.genAdditionalPropertiesTypeSpec(parentName, sdkName, value.Value.Description, *value.Value.AdditionalProperties.Schema.Value)
-			} else {
-				typeSpec = &pschema.TypeSpec{
-					Type: openapi3.TypeObject,
-					AdditionalProperties: &pschema.TypeSpec{
-						Ref: pulumiAnyType,
-					},
-				}
+		if value.Value.AdditionalProperties.Schema != nil {
+			typeSpec, err = ctx.genAdditionalPropertiesTypeSpec(parentName, sdkName, value.Value.Description, *value.Value.AdditionalProperties.Schema.Value)
+		} else if value.Value.AdditionalProperties.Has != nil && *value.Value.AdditionalProperties.Has {
+			typeSpec = &pschema.TypeSpec{
+				Type: openapi3.TypeObject,
+				AdditionalProperties: &pschema.TypeSpec{
+					Ref: pulumiAnyType,
+				},
 			}
 		} else {
 			typeSpec, _, err = ctx.propertyTypeSpec(parentName+ToPascalCase(name), *value)
