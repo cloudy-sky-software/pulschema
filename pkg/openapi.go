@@ -34,6 +34,8 @@ const (
 
 	propertyName   = "name"
 	languageCSharp = "csharp"
+
+	pulumiAnyType = "pulumi.json#/Any"
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
@@ -884,7 +886,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 					TypeSpec: pschema.TypeSpec{
 						Type: openapi3.TypeObject,
 						AdditionalProperties: &pschema.TypeSpec{
-							Ref: "pulumi.json#/Any",
+							Ref: pulumiAnyType,
 						},
 					},
 				}
@@ -946,7 +948,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 						TypeSpec: pschema.TypeSpec{
 							Type: openapi3.TypeObject,
 							AdditionalProperties: &pschema.TypeSpec{
-								Ref: "pulumi.json#/Any",
+								Ref: pulumiAnyType,
 							},
 						},
 					}
@@ -1363,7 +1365,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	case valType.Includes(openapi3.TypeNumber):
 		return &pschema.TypeSpec{Type: openapi3.TypeNumber}, false, nil
 	case valType.Is(openapi3.TypeObject):
-		return &pschema.TypeSpec{Ref: "pulumi.json#/Any"}, false, nil
+		return &pschema.TypeSpec{Ref: pulumiAnyType}, false, nil
 	case valType.Is(openapi3.TypeArray):
 		elementType, _, err := ctx.propertyTypeSpec(parentName+"Item", *propSchema.Value.Items)
 		if err != nil {
@@ -1437,7 +1439,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 				typeSpec = &pschema.TypeSpec{
 					Type: openapi3.TypeObject,
 					AdditionalProperties: &pschema.TypeSpec{
-						Ref: "pulumi.json#/Any",
+						Ref: pulumiAnyType,
 					},
 				}
 			}
