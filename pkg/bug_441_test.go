@@ -32,6 +32,13 @@ func TestBug441(t *testing.T) {
 		assert.Contains(t, machineConfig.Properties, "checks")
 		checksProperty := machineConfig.Properties["checks"]
 		assert.NotNil(t, checksProperty.AdditionalProperties)
-		assert.Equal(t, fmt.Sprintf("#/types/%s:machines:ChecksProperties", packageName), checksProperty.AdditionalProperties.Ref)
+		// The additional properties ref name should
+		// be prefixed with the parent schema name.
+		//
+		// In this case, the property `checks` is
+		// under the `MachineConfig` schema. Therefore,
+		// the ref type name for `checks` should be
+		// MachineConfig + Checks + Properties.
+		assert.Equal(t, fmt.Sprintf("#/types/%s:machines:MachineConfigChecksProperties", packageName), checksProperty.AdditionalProperties.Ref)
 	})
 }
