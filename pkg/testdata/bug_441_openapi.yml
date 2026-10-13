@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+components:
+  schemas:
+    MachineCheck:
+      type: object
+      properties:
+        grace_period:
+          type: string
+          example: 1s
+
+    MachineConfig:
+      type: object
+      properties:
+        checks:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MachineCheck"
+
+    CreateMachineRequest:
+      type: object
+      properties:
+        config:
+          type: object
+          description: An object defining the Machine configuration
+          allOf:
+            - $ref: "#/components/schemas/MachineConfig"
+        name:
+          type: string
+
+    Machine:
+      type: object
+      properties:
+        config:
+          $ref: "#/components/schemas/MachineConfig"
+        name:
+          type: string
+paths:
+  /machines:
+    post:
+      tags:
+        - Machines
+      summary: Create Machine
+      operationId: createMachine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMachineRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Machine"
