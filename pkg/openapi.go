@@ -873,7 +873,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 		var propSpec pschema.PropertySpec
 
 		if prop.Value.AdditionalProperties.Schema != nil {
-			typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+			typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema)
 			if err != nil {
 				return nil, errors.Wrapf(err, "generating additional properties type spec for %s in request body schema", propName)
 			}
@@ -933,7 +933,7 @@ func (o *OpenAPIContext) gatherResourceProperties(resourceName string, requestBo
 			var propSpec pschema.PropertySpec
 
 			if prop.Value.AdditionalProperties.Schema != nil {
-				typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema.Value)
+				typeSpec, err := pkgCtx.genAdditionalPropertiesTypeSpec("", propName, prop.Value.Description, *prop.Value.AdditionalProperties.Schema)
 				if err != nil {
 					return nil, errors.Wrapf(err, "generating additional properties for %s in response body schema", propName)
 				}
@@ -1376,16 +1376,20 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 	return nil, false, errors.Errorf("failed to generate property types for %+v", *propSchema.Value)
 }
 
-func (ctx *resourceContext) genAdditionalPropertiesTypeSpec(parentName, sdkName, description string, typeSchema openapi3.Schema) (*pschema.TypeSpec, error) {
-	if len(typeSchema.Properties) == 0 {
+func (ctx *resourceContext) genAdditionalPropertiesTypeSpec(parentName, sdkName, description string, typeSchema openapi3.SchemaRef) (*pschema.TypeSpec, error) {
+	if len(typeSchema.Value.Properties) == 0 {
+		typeSpec, _, err := ctx.propertyTypeSpec(ToPascalCase(sdkName), typeSchema)
+		if err != nil {
+			return nil, errors.Wrapf(err, "generating type spec for property with additional properties: %s (parentName: %s)", sdkName, parentName)
+		}
+
 		return &pschema.TypeSpec{
-			Type: openapi3.TypeObject,
-			AdditionalProperties: &pschema.TypeSpec{
-				Type: typeSchema.Type.Slice()[0],
-			},
+			Type:                 openapi3.TypeObject,
+			AdditionalProperties: typeSpec,
 		}, nil
 	}
-	propertiesSpecs, requiredProps, err := ctx.genProperties(sdkName, typeSchema)
+
+	propertiesSpecs, requiredProps, err := ctx.genProperties(sdkName, *typeSchema.Value)
 	if err != nil {
 		return nil, errors.Wrapf(err, "generating additional properties type spec for %s (parentName: %s)", sdkName, parentName)
 	}
@@ -1429,7 +1433,7 @@ func (ctx *resourceContext) genProperties(parentName string, typeSchema openapi3
 		var err error
 
 		if value.Value.AdditionalProperties.Schema != nil {
-			typeSpec, err = ctx.genAdditionalPropertiesTypeSpec(parentName, sdkName, value.Value.Description, *value.Value.AdditionalProperties.Schema.Value)
+			typeSpec, err = ctx.genAdditionalPropertiesTypeSpec(parentName, sdkName, value.Value.Description, *value.Value.AdditionalProperties.Schema)
 		} else if value.Value.AdditionalProperties.Has != nil && *value.Value.AdditionalProperties.Has {
 			typeSpec = &pschema.TypeSpec{
 				Type: openapi3.TypeObject,
