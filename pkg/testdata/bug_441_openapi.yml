@@ -22,6 +22,16 @@ components:
           type: object
           additionalProperties:
             $ref: "#/components/schemas/MachineCheck"
+        groups:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        autoApprovers:
+          type: object
+          additionalProperties:
+            type: string
 
     CreateMachineRequest:
       type: object
