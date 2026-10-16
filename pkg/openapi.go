@@ -1197,7 +1197,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, bool, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
-	if propSchema.Ref != "" && !propSchema.Value.Type.Is(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
+	if propSchema.Ref != "" && !propSchema.Value.Type.Includes(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
 		typName = sanitizeResourceTitle(typName)
@@ -1209,7 +1209,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		// return a TypeSpec for that type.
 		// Properties can refer to reusable schema types
 		// which are actually just simple types.
-		if !typeSchema.Value.Type.Is(openapi3.TypeObject) &&
+		if !typeSchema.Value.Type.IsEmpty() && !typeSchema.Value.Type.Includes(openapi3.TypeObject) &&
 			len(typeSchema.Value.Properties) == 0 &&
 			len(typeSchema.Value.OneOf) == 0 &&
 			len(typeSchema.Value.AllOf) == 0 {
@@ -1509,7 +1509,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 
 		typ, newlyAddedType, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "generating type spec for each ref in allof schema for %s", parentName)
 		}
 
 		if newlyAddedType {
@@ -1528,9 +1528,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 		refTypeTok := strings.TrimPrefix(t.Ref, "#/types/")
 		refType := ctx.pkg.Types[refTypeTok]
 
-		for name, propSpec := range refType.Properties {
-			properties[name] = propSpec
-		}
+		maps.Copy(properties, refType.Properties)
 
 		for _, r := range refType.Required {
 			if requiredSpecs.Has(r) {
@@ -1600,7 +1598,7 @@ func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec,
 // genEnumType generates the enum type for a given schema.
 func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Schema) (*pschema.TypeSpec, error) {
 	if len(propSchema.Type.Slice()) == 0 {
-		return nil, nil
+		return nil, errors.Errorf("enum property %q does not have a type", enumName)
 	}
 
 	typName := ToPascalCase(enumName)
@@ -1616,9 +1614,9 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	var names codegen.StringSet
 
 	switch {
-	case propSchema.Type.Is(openapi3.TypeString):
+	case propSchema.Type.Includes(openapi3.TypeString):
 		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum)
-	case propSchema.Type.Is(openapi3.TypeInteger):
+	case propSchema.Type.Includes(openapi3.TypeInteger):
 		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
 	default:
 		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
@@ -1662,6 +1660,7 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 		}, nil
 	}
 
+	glog.Infof("Saving enum type %s", tok)
 	ctx.pkg.Types[tok] = *enumSpec
 
 	return &pschema.TypeSpec{
