@@ -36,6 +36,8 @@ const (
 	languageCSharp = "csharp"
 
 	pulumiAnyType = "pulumi.json#/Any"
+
+	extensionEnumVarNames = "x-enum-varnames"
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
@@ -1548,26 +1550,46 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	return properties, requiredSpecs, nil
 }
 
-func getStringEnumValues(enumName string, rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+func getStringEnumValues(enumName string, rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
 	enums := make([]pschema.EnumValueSpec, 0)
 	names := codegen.NewStringSet()
+	hasEnumVarNames := false
+	extensionVarNames := make([]string, 0)
 
-	for _, val := range rawEnumValues {
-		name := ToPascalCase(val.(string))
-		if names.Has(name) {
-			continue
+	if v, ok := extensions[extensionEnumVarNames]; ok {
+		hasEnumVarNames = ok
+
+		if varNames, ok := v.([]any); ok {
+			for _, a := range varNames {
+				s := a.(string)
+				names.Add(s)
+				extensionVarNames = append(extensionVarNames, s)
+			}
+		}
+	}
+
+	for i, val := range rawEnumValues {
+		var enumItemName string
+		if !hasEnumVarNames {
+			name := ToPascalCase(val.(string))
+			if names.Has(name) {
+				continue
+			}
+
+			// Use the original name when adding to the set of unique
+			// enum values.
+			names.Add(name)
+
+			// Override the name of the enum member
+			// if it collides with the enum type's name.
+			enumItemName = name
+			if enumItemName == enumName {
+				enumItemName += "_"
+			}
+		} else {
+			enumItemName = extensionVarNames[i]
 		}
 
-		// Use the original name when adding to the set of unique
-		// enum values.
-		names.Add(name)
-
-		// Override the name of the enum member
-		// if it collides with the enum type's name.
-		enumItemName := name
-		if enumItemName == enumName {
-			enumItemName += "_"
-		}
 		enumVal := pschema.EnumValueSpec{
 			Value: val,
 			Name:  enumItemName,
@@ -1578,17 +1600,37 @@ func getStringEnumValues(enumName string, rawEnumValues []interface{}) ([]pschem
 	return enums, names
 }
 
-func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
+func getIntegerEnumValues(rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
 	enums := make([]pschema.EnumValueSpec, 0)
 	names := codegen.NewStringSet()
+	hasEnumVarNames := false
+	extensionVarNames := make([]string, 0)
 
-	for _, val := range rawEnumValues {
-		name := fmt.Sprintf("%d", val)
+	if v, ok := extensions[extensionEnumVarNames]; ok {
+		hasEnumVarNames = ok
+
+		if varNames, ok := v.([]any); ok {
+			for _, a := range varNames {
+				s := a.(string)
+				names.Add(s)
+				extensionVarNames = append(extensionVarNames, s)
+			}
+		}
+	}
+
+	for i, val := range rawEnumValues {
+		var name string
+		if !hasEnumVarNames {
+			name = fmt.Sprintf("%v", val)
+			names.Add(name)
+		} else {
+			name = extensionVarNames[i]
+		}
+
 		enumVal := pschema.EnumValueSpec{
 			Value: val,
 			Name:  name,
 		}
-		names.Add(name)
 		enums = append(enums, enumVal)
 	}
 
@@ -1615,9 +1657,9 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 
 	switch {
 	case propSchema.Type.Includes(openapi3.TypeString):
-		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum)
+		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum, propSchema.Extensions)
 	case propSchema.Type.Includes(openapi3.TypeInteger):
-		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
+		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum, propSchema.Extensions)
 	default:
 		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
 	}
