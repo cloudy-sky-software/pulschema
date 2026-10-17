@@ -36,6 +36,8 @@ const (
 	languageCSharp = "csharp"
 
 	pulumiAnyType = "pulumi.json#/Any"
+
+	extensionEnumVarNames = "x-enum-varnames"
 )
 
 var versionRegex = regexp.MustCompile("v[0-9]+[a-z0-9]*")
@@ -1197,7 +1199,7 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema openapi3.SchemaRef) (*pschema.TypeSpec, bool, error) {
 	// References to other type definitions as long as the type is not an array.
 	// Arrays and enums will be handled later in this method.
-	if propSchema.Ref != "" && !propSchema.Value.Type.Is(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
+	if propSchema.Ref != "" && !propSchema.Value.Type.Includes(openapi3.TypeArray) && len(propSchema.Value.Enum) == 0 {
 		schemaName := strings.TrimPrefix(propSchema.Ref, componentsSchemaRefPrefix)
 		typName := ToPascalCase(schemaName)
 		typName = sanitizeResourceTitle(typName)
@@ -1209,7 +1211,7 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		// return a TypeSpec for that type.
 		// Properties can refer to reusable schema types
 		// which are actually just simple types.
-		if !typeSchema.Value.Type.Is(openapi3.TypeObject) &&
+		if !typeSchema.Value.Type.IsEmpty() && !typeSchema.Value.Type.Includes(openapi3.TypeObject) &&
 			len(typeSchema.Value.Properties) == 0 &&
 			len(typeSchema.Value.OneOf) == 0 &&
 			len(typeSchema.Value.AllOf) == 0 {
@@ -1509,7 +1511,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 
 		typ, newlyAddedType, err := ctx.propertyTypeSpec(parentName, *schemaRef)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "generating type spec for each ref in allof schema for %s", parentName)
 		}
 
 		if newlyAddedType {
@@ -1528,9 +1530,7 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 		refTypeTok := strings.TrimPrefix(t.Ref, "#/types/")
 		refType := ctx.pkg.Types[refTypeTok]
 
-		for name, propSpec := range refType.Properties {
-			properties[name] = propSpec
-		}
+		maps.Copy(properties, refType.Properties)
 
 		for _, r := range refType.Required {
 			if requiredSpecs.Has(r) {
@@ -1550,26 +1550,48 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 	return properties, requiredSpecs, nil
 }
 
-func getStringEnumValues(enumName string, rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
-	enums := make([]pschema.EnumValueSpec, 0)
+func getStringEnumValues(enumName string, rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0, len(rawEnumValues))
 	names := codegen.NewStringSet()
+	hasEnumVarNames := false
+	extensionVarNames := make([]string, 0)
 
-	for _, val := range rawEnumValues {
-		name := ToPascalCase(val.(string))
-		if names.Has(name) {
-			continue
+	if v, ok := extensions[extensionEnumVarNames]; ok {
+		if varNames, ok := v.([]any); ok {
+			hasEnumVarNames = ok
+
+			for _, a := range varNames {
+				s := a.(string)
+				names.Add(s)
+				extensionVarNames = append(extensionVarNames, s)
+			}
+
+			glog.Infof("Using enum var names from extension %s: %v", extensionEnumVarNames, extensionVarNames)
+		}
+	}
+
+	for i, val := range rawEnumValues {
+		var enumItemName string
+		if !hasEnumVarNames {
+			name := ToPascalCase(val.(string))
+			if names.Has(name) {
+				continue
+			}
+
+			// Use the original name when adding to the set of unique
+			// enum values.
+			names.Add(name)
+
+			// Override the name of the enum member
+			// if it collides with the enum type's name.
+			enumItemName = name
+			if enumItemName == enumName {
+				enumItemName += "_"
+			}
+		} else {
+			enumItemName = extensionVarNames[i]
 		}
 
-		// Use the original name when adding to the set of unique
-		// enum values.
-		names.Add(name)
-
-		// Override the name of the enum member
-		// if it collides with the enum type's name.
-		enumItemName := name
-		if enumItemName == enumName {
-			enumItemName += "_"
-		}
 		enumVal := pschema.EnumValueSpec{
 			Value: val,
 			Name:  enumItemName,
@@ -1580,17 +1602,39 @@ func getStringEnumValues(enumName string, rawEnumValues []interface{}) ([]pschem
 	return enums, names
 }
 
-func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec, codegen.StringSet) {
-	enums := make([]pschema.EnumValueSpec, 0)
+func getIntegerEnumValues(rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
+	enums := make([]pschema.EnumValueSpec, 0, len(rawEnumValues))
 	names := codegen.NewStringSet()
+	hasEnumVarNames := false
+	extensionVarNames := make([]string, 0)
 
-	for _, val := range rawEnumValues {
-		name := fmt.Sprintf("%d", val)
+	if v, ok := extensions[extensionEnumVarNames]; ok {
+		if varNames, ok := v.([]any); ok {
+			hasEnumVarNames = ok
+
+			for _, a := range varNames {
+				s := a.(string)
+				names.Add(s)
+				extensionVarNames = append(extensionVarNames, s)
+			}
+
+			glog.Infof("Using enum var names from extension %s: %v", extensionEnumVarNames, extensionVarNames)
+		}
+	}
+
+	for i, val := range rawEnumValues {
+		var name string
+		if !hasEnumVarNames {
+			name = fmt.Sprintf("%v", val)
+			names.Add(name)
+		} else {
+			name = extensionVarNames[i]
+		}
+
 		enumVal := pschema.EnumValueSpec{
 			Value: val,
 			Name:  name,
 		}
-		names.Add(name)
 		enums = append(enums, enumVal)
 	}
 
@@ -1600,7 +1644,7 @@ func getIntegerEnumValues(rawEnumValues []interface{}) ([]pschema.EnumValueSpec,
 // genEnumType generates the enum type for a given schema.
 func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Schema) (*pschema.TypeSpec, error) {
 	if len(propSchema.Type.Slice()) == 0 {
-		return nil, nil
+		return nil, errors.Errorf("enum property %q does not have a type", enumName)
 	}
 
 	typName := ToPascalCase(enumName)
@@ -1616,10 +1660,10 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 	var names codegen.StringSet
 
 	switch {
-	case propSchema.Type.Is(openapi3.TypeString):
-		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum)
-	case propSchema.Type.Is(openapi3.TypeInteger):
-		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum)
+	case propSchema.Type.Includes(openapi3.TypeString):
+		enumSpec.Enum, names = getStringEnumValues(enumName, propSchema.Enum, propSchema.Extensions)
+	case propSchema.Type.Includes(openapi3.TypeInteger):
+		enumSpec.Enum, names = getIntegerEnumValues(propSchema.Enum, propSchema.Extensions)
 	default:
 		return nil, errors.Errorf("cannot handle enum values of type %s", propSchema.Type)
 	}
@@ -1662,6 +1706,7 @@ func (ctx *resourceContext) genEnumType(enumName string, propSchema openapi3.Sch
 		}, nil
 	}
 
+	glog.Infof("Saving enum type %s", tok)
 	ctx.pkg.Types[tok] = *enumSpec
 
 	return &pschema.TypeSpec{
