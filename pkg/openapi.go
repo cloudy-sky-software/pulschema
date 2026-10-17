@@ -1551,20 +1551,22 @@ func (ctx *resourceContext) genPropertiesFromAllOf(parentName string, allOf open
 }
 
 func getStringEnumValues(enumName string, rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
-	enums := make([]pschema.EnumValueSpec, 0)
+	enums := make([]pschema.EnumValueSpec, 0, len(rawEnumValues))
 	names := codegen.NewStringSet()
 	hasEnumVarNames := false
 	extensionVarNames := make([]string, 0)
 
 	if v, ok := extensions[extensionEnumVarNames]; ok {
-		hasEnumVarNames = ok
-
 		if varNames, ok := v.([]any); ok {
+			hasEnumVarNames = ok
+
 			for _, a := range varNames {
 				s := a.(string)
 				names.Add(s)
 				extensionVarNames = append(extensionVarNames, s)
 			}
+
+			glog.Infof("Using enum var names from extension %s: %v", extensionEnumVarNames, extensionVarNames)
 		}
 	}
 
@@ -1601,20 +1603,22 @@ func getStringEnumValues(enumName string, rawEnumValues []any, extensions map[st
 }
 
 func getIntegerEnumValues(rawEnumValues []any, extensions map[string]any) ([]pschema.EnumValueSpec, codegen.StringSet) {
-	enums := make([]pschema.EnumValueSpec, 0)
+	enums := make([]pschema.EnumValueSpec, 0, len(rawEnumValues))
 	names := codegen.NewStringSet()
 	hasEnumVarNames := false
 	extensionVarNames := make([]string, 0)
 
 	if v, ok := extensions[extensionEnumVarNames]; ok {
-		hasEnumVarNames = ok
-
 		if varNames, ok := v.([]any); ok {
+			hasEnumVarNames = ok
+
 			for _, a := range varNames {
 				s := a.(string)
 				names.Add(s)
 				extensionVarNames = append(extensionVarNames, s)
 			}
+
+			glog.Infof("Using enum var names from extension %s: %v", extensionEnumVarNames, extensionVarNames)
 		}
 	}
 
