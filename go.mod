@@ -74,7 +74,7 @@ require (
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pulumi/appdash v0.0.0-20231130102222-75f619a67231 // indirect
 	github.com/pulumi/inflector v0.2.1 // indirect
-	github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.115.0
+	github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.116.0
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
@@ -130,7 +130,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
-	github.com/pulumi/pulumi-cloud-sdk/go v1.20261019.1659 // indirect
+	github.com/pulumi/pulumi-cloud-sdk/go v1.20261022.0 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
