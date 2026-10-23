@@ -312,6 +312,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			glog.V(3).Infof("PATCH: Parent path for %s is %s\n", currentPath, parentPath)
 
 			jsonReq := pathItem.Patch.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq == nil {
+				contract.Failf("Path %s does not support %s media type", currentPath, jsonMimeType)
+			}
 			if jsonReq.Schema.Value == nil {
 				contract.Failf("Path %s has no schema definition for Patch method", currentPath)
 			}
@@ -376,6 +379,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 			glog.V(3).Infof("PUT: Parent path for %s is %s\n", currentPath, parentPath)
 
 			jsonReq := pathItem.Put.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq == nil {
+				contract.Failf("Path %s does not support %s media type", currentPath, jsonMimeType)
+			}
 			if jsonReq.Schema.Value == nil {
 				contract.Failf("Path %s has no schema definition for Put method", currentPath)
 			}
@@ -429,6 +435,9 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 			if pathItem.Delete.RequestBody != nil {
 				jsonReq := pathItem.Delete.RequestBody.Value.Content.Get(jsonMimeType)
+				if jsonReq == nil {
+					contract.Failf("Path %s does not support %s media type", currentPath, jsonMimeType)
+				}
 				if jsonReq.Schema.Value == nil {
 					contract.Failf("Path %s has no schema definition for Delete method", currentPath)
 				}
@@ -489,11 +498,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		var jsonReq *openapi3.MediaType
 		if pathItem.Post != nil && pathItem.Post.RequestBody != nil {
 			jsonReq = pathItem.Post.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq == nil {
+				contract.Failf("Path %s does not support %s media type", currentPath, jsonMimeType)
+			}
 			if jsonReq.Schema.Value == nil {
 				return nil, o.Doc, errors.Errorf("path %s has no request body schema for post method", currentPath)
 			}
 		} else if pathItem.Put != nil && pathItem.Put.RequestBody != nil {
 			jsonReq = pathItem.Put.RequestBody.Value.Content.Get(jsonMimeType)
+			if jsonReq == nil {
+				contract.Failf("Path %s does not support %s media type", currentPath, jsonMimeType)
+			}
 			if jsonReq.Schema.Value == nil {
 				return nil, o.Doc, errors.Errorf("path %s has no request body schema for put method", currentPath)
 			}
