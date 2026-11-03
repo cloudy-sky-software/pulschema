@@ -357,6 +357,7 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 
 				if len(resourceType.AnyOf) > 0 {
 					for _, ref := range resourceType.AnyOf {
+						// The schemas may be inlined instead of refs to other types.
 						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
 						schemaNames.Add(schemaName)
 					}
