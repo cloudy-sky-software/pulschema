@@ -99,6 +99,11 @@ type OpenAPIContext struct {
 	// of an endpoint that can be used to read the resource.
 	AllowedResourcesWithoutReadEndpoint []string
 
+	// ModuleNameOverrides is a map of overrides for module names used
+	// in Pulumi type tokens.
+	// https://www.pulumi.com/docs/iac/concepts/resources/names/#types
+	ModuleNameOverrides map[string]string
+
 	// resourceCRUDMap is a map of the Pulumi resource type
 	// token to its CRUD endpoints.
 	resourceCRUDMap map[string]*CRUDOperationsMap
@@ -176,7 +181,10 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 		// in the crudMap.
 		currentPath := path
 		parentPath := getParentPath(currentPath)
-		module := getModuleFromPath(currentPath, o.UseParentResourceAsModule)
+		module, err := getModuleFromPath(currentPath, o.UseParentResourceAsModule, o.ModuleNameOverrides)
+		if err != nil {
+			return nil, o.Doc, fmt.Errorf("generate module from path: %w", err)
+		}
 
 		// Check each HTTP method for this path
 		methods := []string{}
