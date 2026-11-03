@@ -43,7 +43,7 @@ func getModuleFromPath(path string, useParentResourceAsModule bool, nameOverride
 		}
 
 		if startsWithNumber(mod) {
-			return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", mod, path)
+			return "", fmt.Errorf("module name %s for path %s starts with a number. module name override is required", mod, path)
 		}
 
 		return mod, nil
@@ -60,7 +60,7 @@ func getModuleFromPath(path string, useParentResourceAsModule bool, nameOverride
 		}
 
 		if startsWithNumber(parts[0]) {
-			return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", parts[0], path)
+			return "", fmt.Errorf("module name %s for path %s starts with a number. module name override is required", parts[0], path)
 		}
 
 		return strings.ToLower(parts[0]), nil
@@ -75,7 +75,7 @@ func getModuleFromPath(path string, useParentResourceAsModule bool, nameOverride
 	}
 
 	if startsWithNumber(mod) {
-		return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", mod, path)
+		return "", fmt.Errorf("module name %s for path %s starts with a number. module name override is required", mod, path)
 	}
 
 	return mod, nil
