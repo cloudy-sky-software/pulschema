@@ -32,11 +32,21 @@ const (
 	keywordCreate = "create"
 )
 
-func getModuleFromPath(path string, useParentResourceAsModule bool) string {
+func getModuleFromPath(path string, useParentResourceAsModule bool, nameOverrides map[string]string) (string, error) {
 	if useParentResourceAsModule {
 		parentPath := getParentPath(path)
 		parentParts := strings.Split(strings.TrimPrefix(parentPath, pathSeparator), pathSeparator)
-		return strings.ToLower(parentParts[len(parentParts)-1])
+		mod := strings.ToLower(parentParts[len(parentParts)-1])
+		// Use override if it exists.
+		if v, ok := nameOverrides[mod]; ok {
+			return v, nil
+		}
+
+		if startsWithNumber(mod) {
+			return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", mod, path)
+		}
+
+		return mod, nil
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, pathSeparator), pathSeparator)
@@ -44,11 +54,31 @@ func getModuleFromPath(path string, useParentResourceAsModule bool) string {
 	// If the first item in parts is not a version number prefix, then
 	// return as-is.
 	if !versionRegex.Match([]byte(parts[0])) {
-		return strings.ToLower(parts[0])
+		// Use override if it exists.
+		if v, ok := nameOverrides[parts[0]]; ok {
+			return v, nil
+		}
+
+		if startsWithNumber(parts[0]) {
+			return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", parts[0], path)
+		}
+
+		return strings.ToLower(parts[0]), nil
 	}
 
 	// Otherwise, we should use a versioned module.
-	return strings.ToLower(parts[1]) + pathSeparator + parts[0]
+	mod := strings.ToLower(parts[1]) + pathSeparator + parts[0]
+
+	// Use override if it exists.
+	if v, ok := nameOverrides[mod]; ok {
+		return v, nil
+	}
+
+	if startsWithNumber(mod) {
+		return "", fmt.Errorf("Module name %q for path (%s) starts with a number and will fail Pulumi schema validation. Provide a module name override.", mod, path)
+	}
+
+	return mod, nil
 }
 
 func getParentPath(path string) string {
