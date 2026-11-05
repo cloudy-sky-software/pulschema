@@ -6,8 +6,8 @@ require (
 	github.com/getkin/kin-openapi v0.152.0
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
-	github.com/pulumi/pulumi/pkg/v3 v3.274.0
-	github.com/pulumi/pulumi/sdk/v3 v3.274.0
+	github.com/pulumi/pulumi/pkg/v3 v3.274.1
+	github.com/pulumi/pulumi/sdk/v3 v3.274.1
 	github.com/stretchr/testify v1.12.1
 )
 
@@ -130,7 +130,7 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
-	github.com/pulumi/pulumi-cloud-sdk/go v1.20261030.0 // indirect
+	github.com/pulumi/pulumi-cloud-sdk/go v1.20261104.0 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	go.mongodb.org/mongo-driver v1.17.10 // indirect
 	go.opentelemetry.io/contrib/bridges/otelslog v0.21.0 // indirect
