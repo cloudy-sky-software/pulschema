@@ -164,6 +164,8 @@ github.com/getkin/kin-openapi v0.151.0 h1:p8NIstL53h620DnlO9R4pR4QRkEzJ3jbw9flb4
 github.com/getkin/kin-openapi v0.151.0/go.mod h1:1+BHDzstro+P5CKtPy1X4PfofnFgmRe6uvMy9+r9fKY=
 github.com/getkin/kin-openapi v0.152.0 h1:XRVo77lMRyOGMHf1paMu9lxX3wzuQDZeprssZJnz/x8=
 github.com/getkin/kin-openapi v0.152.0/go.mod h1:1+BHDzstro+P5CKtPy1X4PfofnFgmRe6uvMy9+r9fKY=
+github.com/getkin/kin-openapi v0.153.0 h1:Qo4qWW+Pj8o90LUTE6MDyG5TJAtWnfvrcWOBcWg7eBw=
+github.com/getkin/kin-openapi v0.153.0/go.mod h1:mEZ6Ip3gyqPDokUsJsttZhv3r46/NeH3tGwrFUMcoSE=
 github.com/git-pkgs/manifests v0.4.1 h1:CWml+TrRXVzrfNJ2pTNKLqyi+9y/BFiQP/BX3pL4pPQ=
 github.com/git-pkgs/manifests v0.4.1/go.mod h1:7SPFwU9diUG1Az682/p4ZupHJkfpbWKwRvNPwCcOeVs=
 github.com/git-pkgs/packageurl-go v0.3.1 h1:WM3RBABQZLaRBxgKyYughc3cVBE8KyQxbSC6Jt5ak7M=
@@ -520,6 +522,8 @@ go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN8
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
+go.yaml.in/yaml/v4 v4.0.0 h1:/LG1pNO84Z4l603j/xMn69CcS5OYhMQ/f7l2LoQUGuw=
+go.yaml.in/yaml/v4 v4.0.0/go.mod h1:aZqd9kCMsGL7AuUv/m/PvWLdg5sjJsZ4oHDEnfPPfY0=
 gocloud.dev v0.46.1-0.20260810195832-b5401c07b5f1 h1:IAkFU35NtKgVP8FV3zm1b16DMucGz3f4XqrqdAZQ1aU=
 gocloud.dev v0.46.1-0.20260810195832-b5401c07b5f1/go.mod h1:HdtAx0btBlExxR61nWzUxviFmndZTvWrKMPeGiFwRYk=
 gocloud.dev/secrets/hashivault v0.46.0 h1:gQlpb/1wEwVoOavi/RGeQs5WlnzYddcDW81b0kywI0w=
