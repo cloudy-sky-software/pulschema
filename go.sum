@@ -279,6 +279,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.18.7 h1:aUyZsS4kH3QTKurYhAOwAHxllVPnOthb3vPfnF1Ehjw=
 github.com/klauspost/compress v1.18.7/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
+github.com/klauspost/compress v1.20.2 h1:v5tiZvm1KGLyg5d5oXdXe3lsSPrbEUiKoXGia//I7Qo=
+github.com/klauspost/compress v1.20.2/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
@@ -374,6 +376,8 @@ github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.116.2 h1:MnVAGVxUIz
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.116.2/go.mod h1:oMDjthv4h/PfoFaL/q3TsMWQaJ5uFdjopZV7MUOcz+8=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.117.0 h1:jlIMsGAn8ZzqLJKJ4G32m73oAx945UBCVMrgL7e4Dw4=
 github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.117.0/go.mod h1:g84QZQkfRpghbUFVGNlkFEmlmeZsqOUrVGMZZ9RcPdA=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.118.0 h1:c64OMhqfyTeL/52jGLKI8k1NVBMKty3vNSAaInQ8+fk=
+github.com/pulumi/pulumi-dotnet/pulumi-language-dotnet/v3 v3.118.0/go.mod h1:O15OHiC2kUDbl9Dp+do+9WmV7xc+kUFIRP/yLnZvNaU=
 github.com/pulumi/pulumi/pkg/v3 v3.270.0 h1:eReuhd+Mp2TEyvC8nTTgw86DRDhUARGcRHYmew61tHE=
 github.com/pulumi/pulumi/pkg/v3 v3.270.0/go.mod h1:NwRln8Ew9+ZqPkpClgaJzRRlqLU9AMxsSjyKD4AE/AA=
 github.com/pulumi/pulumi/pkg/v3 v3.271.0 h1:rjGISD/WAnojzXjB7zQ72oTrgVWpEEibzld9JEGu7A0=
