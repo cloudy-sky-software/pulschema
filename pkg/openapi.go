@@ -608,6 +608,7 @@ func (o *OpenAPIContext) genListFunc(pathItem openapi3.PathItem, returnTypeSchem
 		sdkToAPINameMap:   o.sdkToAPINameMap,
 		apiToSDKNameMap:   o.apiToSDKNameMap,
 		pathParamMap:      o.pathParamNameMap,
+		resourceName:      getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIDsHaveTypeSpecNamespace),
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -714,6 +715,7 @@ func (o *OpenAPIContext) genGetFunc(pathItem openapi3.PathItem, returnTypeSchema
 		sdkToAPINameMap:   o.sdkToAPINameMap,
 		apiToSDKNameMap:   o.apiToSDKNameMap,
 		pathParamMap:      o.pathParamNameMap,
+		resourceName:      getResourceTitleFromOperationID(pathItem.Get.OperationID, http.MethodGet, o.OperationIDsHaveTypeSpecNamespace),
 	}
 
 	requiredInputs := codegen.NewStringSet()
@@ -1216,6 +1218,19 @@ func (ctx *resourceContext) genPropertySpec(propName string, p openapi3.SchemaRe
 	return propertySpec
 }
 
+// collidesWithComponentSchema reports whether typName matches the
+// Pulumi type name derived from any component schema.
+func (ctx *resourceContext) collidesWithComponentSchema(typName string) bool {
+	for name := range ctx.openapiComponents.Schemas {
+		candidate := sanitizeResourceTitle(ToPascalCase(name))
+		if candidate == typName {
+			return true
+		}
+	}
+
+	return false
+}
+
 // propertyTypeSpec returns a Pulumi property type spec and
 // a flag that indicates if the type ref was previously
 // encountered.
@@ -1334,12 +1349,11 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 		typName := ToPascalCase(parentName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 
-		if ctx.visitedTypes.Has(tok) {
-			typName = ToPascalCase(ctx.resourceName) + parentName
+		// Avoid reusing the name of a real component schema.
+		if ctx.collidesWithComponentSchema(typName) || ctx.visitedTypes.Has(tok) {
+			typName = ToPascalCase(ctx.resourceName) + typName
 			tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
 		}
-
-		ctx.visitedTypes.Add(tok)
 
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
