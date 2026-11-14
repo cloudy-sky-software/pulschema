@@ -62,22 +62,7 @@ components:
       properties:
         region:
           type: string
-    machine_request:
-      type: object
-      properties:
-        name:
-          type: string
-    lease_request:
-      type: object
-      properties:
-        name:
-          type: string
-    session_request:
-      type: object
-      properties:
-        name:
-          type: string
-    token_request:
+    request:
       type: object
       properties:
         name:
@@ -128,7 +113,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/machine_request"
+              $ref: "#/components/schemas/request"
       responses:
         "200":
           description: The created machine.
@@ -144,7 +129,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/lease_request"
+              $ref: "#/components/schemas/request"
       responses:
         "200":
           description: The created lease.
@@ -160,7 +145,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/session_request"
+              $ref: "#/components/schemas/request"
       responses:
         "200":
           description: The created session.
@@ -176,7 +161,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/token_request"
+              $ref: "#/components/schemas/request"
       responses:
         "200":
           description: The created token.
