@@ -1333,6 +1333,14 @@ func (ctx *resourceContext) propertyTypeSpec(parentName string, propSchema opena
 
 		typName := ToPascalCase(parentName)
 		tok := fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
+
+		if ctx.visitedTypes.Has(tok) {
+			typName = ToPascalCase(ctx.resourceName) + parentName
+			tok = fmt.Sprintf("%s:%s:%s", ctx.pkg.Name, ctx.mod, typName)
+		}
+
+		ctx.visitedTypes.Add(tok)
+
 		ctx.pkg.Types[tok] = pschema.ComplexTypeSpec{
 			ObjectTypeSpec: pschema.ObjectTypeSpec{
 				Description: propSchema.Value.Description,
