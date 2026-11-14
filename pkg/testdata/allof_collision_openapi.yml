@@ -1,0 +1,186 @@
+openapi: 3.1.0
+info:
+  title: Fake API
+  version: "2.0"
+servers:
+  - url: https://api.fake.com
+    description: production
+
+# Paths are processed by number of path variables (ascending) and then in
+# descending lexicographical order. All of the paths below have no variables,
+# so the order of processing is: tokens, sessions, machines, leases.
+#
+# machines -> leases: the resource that owns the allOf-wrapped `lease`
+# property is processed BEFORE the resource that references the real
+# `Lease` schema.
+#
+# tokens -> sessions: the opposite order, for the `Claim` schema.
+components:
+  schemas:
+    StrippedLease:
+      type: object
+      properties:
+        description:
+          type: string
+        expires_at:
+          type: integer
+        owner:
+          type: string
+    Lease:
+      type: object
+      properties:
+        description:
+          type: string
+        expires_at:
+          type: integer
+        owner:
+          type: string
+        nonce:
+          type: string
+        version:
+          type: string
+    StrippedClaim:
+      type: object
+      properties:
+        expires_at:
+          type: integer
+        owner:
+          type: string
+    Claim:
+      type: object
+      properties:
+        expires_at:
+          type: integer
+        owner:
+          type: string
+        nonce:
+          type: string
+        version:
+          type: string
+    settings_base:
+      type: object
+      properties:
+        region:
+          type: string
+    machine_request:
+      type: object
+      properties:
+        name:
+          type: string
+    lease_request:
+      type: object
+      properties:
+        name:
+          type: string
+    session_request:
+      type: object
+      properties:
+        name:
+          type: string
+    token_request:
+      type: object
+      properties:
+        name:
+          type: string
+    machine:
+      type: object
+      properties:
+        lease:
+          type: object
+          description: The lease.
+          allOf:
+            - $ref: "#/components/schemas/StrippedLease"
+        settings:
+          type: object
+          description: Settings that do not collide with any schema name.
+          allOf:
+            - $ref: "#/components/schemas/settings_base"
+    lease_response:
+      type: object
+      properties:
+        data:
+          type: object
+          description: The lease.
+          allOf:
+            - $ref: "#/components/schemas/Lease"
+    session:
+      type: object
+      properties:
+        claim:
+          type: object
+          description: The claim.
+          allOf:
+            - $ref: "#/components/schemas/StrippedClaim"
+    claim_response:
+      type: object
+      properties:
+        payload:
+          type: object
+          description: The claim.
+          allOf:
+            - $ref: "#/components/schemas/Claim"
+
+paths:
+  /v1/apps/machines:
+    post:
+      operationId: createMachine
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/machine_request"
+      responses:
+        "200":
+          description: The created machine.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/machine"
+
+  /v1/apps/leases:
+    post:
+      operationId: createLease
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/lease_request"
+      responses:
+        "200":
+          description: The created lease.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/lease_response"
+
+  /v1/apps/sessions:
+    post:
+      operationId: createSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/session_request"
+      responses:
+        "200":
+          description: The created session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/session"
+
+  /v1/apps/tokens:
+    post:
+      operationId: createToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/token_request"
+      responses:
+        "200":
+          description: The created token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/claim_response"
