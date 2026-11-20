@@ -356,17 +356,17 @@ func (o *OpenAPIContext) GatherResourcesFromAPI(csharpNamespaces map[string]stri
 				}
 
 				if len(resourceType.AnyOf) > 0 {
-					for _, ref := range resourceType.AnyOf {
-						schemaName := strings.TrimPrefix(ref.Ref, componentsSchemaRefPrefix)
-						schemaNames.Add(schemaName)
-					}
-				}
-
-				for _, n := range schemaNames.SortedValues() {
-					dResource := o.Doc.Components.Schemas[n]
-					resourceName := getResourceTitleFromRequestSchema(n, dResource)
+					resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIDsHaveTypeSpecNamespace)
+					resourceName = getSingularNameForResource(resourceName, o.allowedPluralResources)
 					typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
 					setUpdateOperationMapping(typeToken)
+				} else {
+					for _, n := range schemaNames.SortedValues() {
+						dResource := o.Doc.Components.Schemas[n]
+						resourceName := getResourceTitleFromRequestSchema(n, dResource)
+						typeToken := fmt.Sprintf("%s:%s:%s", o.Pkg.Name, module, resourceName)
+						setUpdateOperationMapping(typeToken)
+					}
 				}
 			} else {
 				resourceName := getResourceTitleFromOperationID(pathItem.Patch.OperationID, http.MethodPatch, o.OperationIDsHaveTypeSpecNamespace)
